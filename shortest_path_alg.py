@@ -51,11 +51,13 @@ class PathAlgorithm:
         neighbors_checked = 0
 
         while len(pq) > 0:
-            u = pq.smallest()
-            if u in visited: continue
+            _, u = pq.smallest()
+            if u in visited: 
+                continue
             visited.add(u)
 
-            if u == end_id: break
+            if u == end_id: 
+                break
 
             for v, edge in self._graph.neighbors(u):
                 neighbors_checked += 1

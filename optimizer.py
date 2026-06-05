@@ -1,6 +1,7 @@
 import random
 import math
 import heapq
+import arcpy
 from itertools import pairwise
 from typing import List, Tuple, Optional
 from models import Graph, CostMatrix, RouteResult
@@ -16,7 +17,8 @@ class RouteOptimizer:
         self.min_duration_sec = duration_h * 3600 * 0.85
 
     def calculate_score(self, nodes_list: List[int], exact_walk_time: Optional[float] = None) -> Tuple[float, float]:
-        weight_sum, attr_time = self.graph.get_attr_weight_time(nodes_list)
+        weight_sum = self.graph.get_attr_weight(nodes_list)
+        attr_time = self.graph.get_attr_time(nodes_list)
         
         if exact_walk_time is not None:
             # Tryb dokładny: używamy czasu z algorytmu A* (wykorzystywane na końcu programu)
@@ -26,7 +28,7 @@ class RouteOptimizer:
             costs = []
             for f, s in pairwise(nodes_list):
                 c = self.cost_matrix.get_cost(f, s)
-                if c is None:
+                if c == -1: # TODO
                     return -float('inf'), float('inf')
                 costs.append(c)
 
@@ -35,21 +37,22 @@ class RouteOptimizer:
             walk_time = sum(costs) + cost_start + cost_end
             
         route_time = walk_time + attr_time
-        alpha = 0.001 
         
-        coeff = weight_sum - (alpha * walk_time)
-        if coeff <= 0:
-            coeff = 0.0001
+        coeff = weight_sum / walk_time
             
-        if route_time > self.max_time_sec:
-            coeff *= math.exp(-0.0005 * (route_time - self.max_time_sec))
+        if route_time > self.duration_sec:
+            overtime = route_time - self.duration_sec
+            penalty = 1 / (1 + 0.001 * overtime)
+            coeff = coeff * penalty
 
-        min_time_sec = (self.max_hours - 1.5) * 3600
-        if route_time < min_time_sec:
-            coeff *= math.exp(-0.0002 * (min_time_sec - route_time))
+        # TODO poprawić to, żeby dodawało następne atrakcje zamiast sztucznie pilnować czasu
+        if route_time < self.min_duration_sec:
+            undertime = self.min_duration_sec - route_time
+            penalty_under = 1 / (1 + 0.001 * undertime)
+            coeff = coeff * penalty_under
             
         return coeff, route_time
-
+    
     def _get_random_combination(self) -> Tuple[Optional[float], Optional[float], Optional[List[int]]]:
         duration = 0
         attr_prev = None
@@ -127,7 +130,8 @@ class RouteOptimizer:
         sorted_best_attr = []
         for _ in range(choices_nmb):
             coeff, _, attr_list = self._get_random_combination()
-            if coeff is None: continue
+            if coeff is None: 
+                continue
             
             if len(sorted_best_attr) < best_routes_nmb:
                 heapq.heappush(sorted_best_attr, (coeff, attr_list))
@@ -148,6 +152,8 @@ class RouteOptimizer:
                     cost_path += res.time
                     edges_path += res.edges
                     verts_path += res.nodes
+                else:
+                    arcpy.AddError("Punkty:", full_vertices[i], full_vertices[i+1], "Rozwiązanie", res, "\n")
                     
             new_score, total_route_time = self.calculate_score(sa_vertices, exact_walk_time=cost_path)
             route = RouteResult(
@@ -159,5 +165,5 @@ class RouteOptimizer:
             )
             sorted_results.append(route)
             
-        sorted_results.sort(key=lambda x: x[0], reverse=True)
+        sorted_results.sort(key=lambda x: x.score, reverse=True)
         return sorted_results[0]
