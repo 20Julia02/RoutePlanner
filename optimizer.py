@@ -126,7 +126,7 @@ class RouteOptimizer:
             
         return best_score, best_attr
 
-    def find_best_route(self, choices_nmb=100000, best_routes_nmb=6) -> Tuple:
+    def find_best_route(self, choices_nmb=1000000, best_routes_nmb=6) -> Tuple:
         sorted_best_attr = []
         for _ in range(choices_nmb):
             coeff, _, attr_list = self._get_random_combination()
