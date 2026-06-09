@@ -4,7 +4,6 @@ import heapq
 import csv
 
 def dijkstra(graph, start):
-    """Oblicza najkrótsze ścieżki od wierzchołka startowego do wszystkich innych w grafie."""
     distances = {node: float('inf') for node in graph}
     distances[start] = 0
     pq = [(0, start)]
@@ -30,7 +29,7 @@ def main():
     out_workspace = arcpy.GetParameterAsText(2)
     search_radius = arcpy.GetParameterAsText(3)
 
-    fld_edge_walk = arcpy.GetParameterAsText(4)      # impedance_
+    fld_edge_walk = arcpy.GetParameterAsText(4)      # u mnie impedance_
     fld_edge_cat = arcpy.GetParameterAsText(5)       # c_tvniv2
     fld_edge_slope = arcpy.GetParameterAsText(6)     # pct_pente
     fld_monument_weight = arcpy.GetParameterAsText(7)# views
@@ -44,23 +43,31 @@ def main():
     out_edges_fc = os.path.join(out_workspace, "krawedzie_grafu")
     near_table = os.path.join(out_workspace, "Relacja_Zabytki_Wierzcholki")
 
-    arcpy.AddMessage("Tworzenie warstw wynikowych...")
     spatial_ref = arcpy.Describe(edges_fc).spatialReference
     
     arcpy.management.CreateFeatureclass(out_workspace, "wierzcholki_grafu", "POINT", spatial_reference=spatial_ref)
-    arcpy.management.AddField(out_vertices_fc, "vertex_id", "LONG")
-    arcpy.management.AddField(out_vertices_fc, "weight", "DOUBLE")
-    arcpy.management.AddField(out_vertices_fc, "time", "DOUBLE")
+    arcpy.management.AddFields(
+        out_vertices_fc,
+        [
+            ["vertex_id", "LONG"],
+            ["weight", "DOUBLE"],
+            ["time", "DOUBLE"],
+        ],
+    )
     
     arcpy.management.CreateFeatureclass(out_workspace, "krawedzie_grafu", "POLYLINE", spatial_reference=spatial_ref)
-    arcpy.management.AddField(out_edges_fc, "orig_oid", "LONG")
-    arcpy.management.AddField(out_edges_fc, "walk_time", "DOUBLE")
-    arcpy.management.AddField(out_edges_fc, "category", "TEXT")
-    arcpy.management.AddField(out_edges_fc, "slope", "DOUBLE")
-    arcpy.management.AddField(out_edges_fc, "start_vertex", "LONG")
-    arcpy.management.AddField(out_edges_fc, "end_vertex", "LONG")
+    arcpy.management.AddFields(
+        out_edges_fc,
+        [
+            ["orig_oid", "LONG"],
+            ["walk_time", "DOUBLE"],
+            ["category", "TEXT"],
+            ["slope", "DOUBLE"],
+            ["start_vertex", "LONG"],
+            ["end_vertex", "LONG"],
+        ],
+    )
 
-    arcpy.AddMessage("Przetwarzanie geometrii krawędzi i budowa topologii...")
     vertex_dict = {}
     vertex_geoms = {}
     current_vertex_id = 1
@@ -73,7 +80,8 @@ def main():
     with arcpy.da.SearchCursor(edges_fc, in_edge_fields) as cursor:
         for row in cursor:
             oid, walk_time, category, slope, shape = row
-            if not shape: continue
+            if not shape: 
+                continue
             
             start_pt = shape.firstPoint
             end_pt = shape.lastPoint
@@ -97,7 +105,6 @@ def main():
             safe_walk_time = walk_time if walk_time is not None else 0.0
             edges_to_insert.append((oid, safe_walk_time, category, slope, start_v_id, end_v_id, shape))
 
-    arcpy.AddMessage("Zapisywanie wierzchołków i krawędzi do geobazy...")
     with arcpy.da.InsertCursor(out_vertices_fc, ["vertex_id", "SHAPE@"]) as v_cursor:
         for v_id, geom in vertex_geoms.items():
             v_cursor.insertRow((v_id, geom))
@@ -105,8 +112,6 @@ def main():
     with arcpy.da.InsertCursor(out_edges_fc, out_edge_fields) as e_cursor:
         for edge in edges_to_insert:
             e_cursor.insertRow(edge)
-
-    arcpy.AddMessage(f"Szukanie najbliższego wierzchołka dla zabytków (promień: {search_radius})...")
     
     arcpy.analysis.GenerateNearTable(
         in_features=monuments_fc, 
@@ -122,7 +127,6 @@ def main():
     arcpy.management.AlterField(near_table, "IN_FID", "id_zabytku", "ID Zabytku")
     arcpy.management.AlterField(near_table, "NEAR_FID", "id_wierzcholka", "ID Wierzchołka")
     
-    arcpy.AddMessage("Agregowanie atrybutów z zabytków do wierzchołków...")
     monument_data = {}
     with arcpy.da.SearchCursor(monuments_fc, ["OID@", fld_monument_weight, fld_monument_time]) as m_cursor:
         for row in m_cursor:
@@ -140,7 +144,6 @@ def main():
                 vertex_agg[v_oid]["weight"] += monument_data[m_oid]["weight"]
                 vertex_agg[v_oid]["time"] += monument_data[m_oid]["time"]
 
-    arcpy.AddMessage("Aktualizacja finalnych wag wierzchołków...")
     poi_vertices = []
     
     with arcpy.da.UpdateCursor(out_vertices_fc, ["OID@", "weight", "time", "vertex_id"]) as uv_cursor:
@@ -159,18 +162,16 @@ def main():
                 
             uv_cursor.updateRow(row)
 
-    if not out_csv_file:
-        arcpy.AddWarning("Brak podanej ścieżki do CSV. Pomijam generowanie macierzy kosztów.")
-    elif not poi_vertices:
-        arcpy.AddWarning("Brak wierzchołków z wagą > 0. Pomijam generowanie macierzy kosztów.")
-    else:
-        arcpy.AddMessage(f"Budowanie grafu pamięciowego i obliczanie macierzy kosztów dla {len(poi_vertices)} atrakcji...")
-        
+    if not out_csv_file or not poi_vertices:
+        arcpy.AddWarning("Brak podanej ścieżki do CSV lub brak wierzchołków z wagą > 0. Pomijam generowanie macierzy kosztów.")
+    else:   
         graph = {}
         with arcpy.da.SearchCursor(out_edges_fc, ["start_vertex", "end_vertex", "walk_time"]) as cursor:
             for u, v, cost in cursor:
-                if u not in graph: graph[u] = {}
-                if v not in graph: graph[v] = {}
+                if u not in graph: 
+                    graph[u] = {}
+                if v not in graph: 
+                    graph[v] = {}
                 
                 graph[u][v] = cost
                 graph[v][u] = cost
@@ -180,7 +181,6 @@ def main():
         csv_header = ["atrakcja_start", "atrakcja_koniec", "koszt"]
         csv_rows = []
         
-        arcpy.SetProgressor("step", "Obliczanie algorytmu Dijkstry...", 0, len(poi_vertices), 1)
         for source in poi_vertices:
             if source in graph:
                 shortest_paths = dijkstra(graph, source)
@@ -195,10 +195,7 @@ def main():
                 final_cost = dist if dist != float('inf') else -1
                 
                 csv_rows.append([source, target, final_cost])
-                
-            arcpy.SetProgressorPosition()
         
-        arcpy.AddMessage(f"Zapisywanie macierzy kosztów do: {out_csv_file}")
         try:
             with open(out_csv_file, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
@@ -206,8 +203,6 @@ def main():
                 writer.writerows(csv_rows)
         except Exception as e:
             arcpy.AddError(f"Błąd podczas zapisu pliku CSV: {str(e)}")
-
-    arcpy.AddMessage("Narzędzie zakończyło działanie pomyślnie!")
 
 if __name__ == '__main__':
     main()
