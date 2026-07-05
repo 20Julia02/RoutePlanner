@@ -3,7 +3,6 @@ from typing import Tuple, List, Optional
 from models import Graph, PathResult
 
 class _Priority:
-    """Kolejka priorytetowa używana wewnętrznie przez algorytmy."""
     def __init__(self, f=lambda x: x):
         self.L = []
         self.f = f
@@ -15,7 +14,6 @@ class _Priority:
         return self.L.pop(0)[1]
 
 def _reconstruct_path(end_id: int, prev: dict) -> Tuple[float, List[int], List[int]]:
-    """Prywatna funkcja pomocnicza do odtwarzania ścieżki po wykonaniu A*."""
     path_nodes = [end_id]
     path_edges = []
     current = end_id
@@ -64,7 +62,6 @@ class PathAlgorithm:
                 new_cost = cost[u] + edge.time
                 new_real_time = real_time[u] + edge.time
                 
-                # Kara za wierzchołki, przez które już przeszliśmy
                 if v in penalties:
                     new_cost += edge.time * 10
 

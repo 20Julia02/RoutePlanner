@@ -37,7 +37,6 @@ class Graph:
         self._edges: Dict[int, Edge] = {}
         self._adj: Dict[int, List[Tuple[int, Edge]]] = {}
 
-    # Read-only properties
     @property
     def nodes(self) -> Dict[int, Node]:
         return self._nodes
