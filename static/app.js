@@ -1,6 +1,6 @@
 import { map, state } from "./js/map-context.js?v=10";
-import { clearResultMap, renderResult } from "./js/result-map.js?v=18";
-import { apiErrorMessage, byId } from "./js/ui-utils.js?v=4";
+import { clearResultMap, renderResult } from "./js/result-map.js?v=19";
+import { apiErrorMessage, byId } from "./js/ui-utils.js?v=5";
 import {
   loadPublicNetworkEdits,
   requestPersistentLocalStorage,

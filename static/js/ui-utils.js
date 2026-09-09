@@ -34,6 +34,9 @@ export function safeImageUrl(value) {
   if (typeof value !== "string" || !value.trim()) return null;
   try {
     const url = new URL(value.trim(), window.location.href);
+    const isWikimedia = url.hostname === "commons.wikimedia.org"
+      || url.hostname.endsWith(".wikimedia.org");
+    if (url.protocol === "http:" && isWikimedia) url.protocol = "https:";
     return url.protocol === "https:" ? url.href : null;
   } catch (_) {
     return null;

@@ -14,7 +14,7 @@ import {
   formatVisitDuration,
   renderWarnings,
   safeImageUrl
-} from "./ui-utils.js?v=4";
+} from "./ui-utils.js?v=5";
 
 
 const MARKER_GROUP_DISTANCE_METERS = 50;
