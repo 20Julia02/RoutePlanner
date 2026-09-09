@@ -32,16 +32,22 @@ logger = logging.getLogger(__name__)
 
 
 def _positive_env_int(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None or not raw_value.strip():
+        return default
     try:
-        return max(1, int(os.getenv(name, str(default))))
+        return max(1, int(raw_value))
     except ValueError:
         logger.warning("Ignored invalid integer environment variable %s", name)
         return default
 
 
 def _nonnegative_env_int(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None or not raw_value.strip():
+        return default
     try:
-        return max(0, int(os.getenv(name, str(default))))
+        return max(0, int(raw_value))
     except ValueError:
         logger.warning("Ignored invalid integer environment variable %s", name)
         return default
@@ -72,11 +78,13 @@ configured_hosts = [
     if value.strip()
 ]
 ALLOWED_HOSTS = list(dict.fromkeys([*DEFAULT_ALLOWED_HOSTS, *configured_hosts]))
+public_data_hosts_value = (
+    (os.getenv("APP_PUBLIC_DATA_HOSTS") or "").strip()
+    or ".public.blob.vercel-storage.com"
+)
 PUBLIC_DATA_HOSTS = tuple(
     value.strip()
-    for value in os.getenv(
-        "APP_PUBLIC_DATA_HOSTS", ".public.blob.vercel-storage.com"
-    ).split(",")
+    for value in public_data_hosts_value.split(",")
     if value.strip()
 )
 
