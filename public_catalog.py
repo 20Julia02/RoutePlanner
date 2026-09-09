@@ -26,6 +26,8 @@ class _RemoteNetwork:
     metadata: dict[str, Any]
     url: str
     sha256: str
+    attractions_url: str | None = None
+    attractions_sha256: str | None = None
 
 
 class PublicNetworkCatalog:
@@ -49,6 +51,7 @@ class PublicNetworkCatalog:
         self._maximum_document_bytes = maximum_document_bytes
         self._manifest: dict[str, _RemoteNetwork] | None = None
         self._cache: OrderedDict[str, Any] = OrderedDict()
+        self._attractions_cache: OrderedDict[str, list[dict[str, Any]]] = OrderedDict()
         self._lock = threading.RLock()
 
         if self._manifest_url:
@@ -108,7 +111,58 @@ class PublicNetworkCatalog:
 
         if not self._manifest_url:
             return self._local.list_attractions(network_id)
-        return list_prepared_attractions(self.load(network_id))
+        if not _NETWORK_ID.fullmatch(network_id):
+            raise ValueError("Nieprawidłowy identyfikator sieci.")
+
+        with self._lock:
+            cached = self._attractions_cache.get(network_id)
+            if cached is not None:
+                self._attractions_cache.move_to_end(network_id)
+                return [dict(item) for item in cached]
+
+            entry = self._remote_manifest().get(network_id)
+            if entry is None:
+                raise FileNotFoundError(f"Nie znaleziono sieci: {network_id}")
+            if not entry.attractions_url or not entry.attractions_sha256:
+                return list_prepared_attractions(self.load(network_id))
+
+            content = self._download(
+                entry.attractions_url,
+                maximum_bytes=self._maximum_document_bytes,
+                expected_sha256=entry.attractions_sha256,
+            )
+            try:
+                document = json.loads(content)
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ValueError("Publiczny plik atrakcji nie jest poprawnym JSON-em.") from exc
+            items = self._parse_attractions_document(document, network_id)
+            self._attractions_cache[network_id] = items
+            self._attractions_cache.move_to_end(network_id)
+            while len(self._attractions_cache) > 5:
+                self._attractions_cache.popitem(last=False)
+            return [dict(item) for item in items]
+
+    @staticmethod
+    def _parse_attractions_document(document: Any, network_id: str) -> list[dict[str, Any]]:
+        required = {
+            "id",
+            "name",
+            "duration_seconds",
+            "weight",
+            "enabled",
+            "vertex_id",
+        }
+        if (
+            not isinstance(document, Mapping)
+            or document.get("version") != 1
+            or document.get("network_id") != network_id
+            or not isinstance(document.get("items"), list)
+        ):
+            raise ValueError("Publiczny plik atrakcji ma nieprawidłowy format.")
+        items = document["items"]
+        if any(not isinstance(item, Mapping) or not required.issubset(item) for item in items):
+            raise ValueError("Publiczny plik atrakcji jest niekompletny.")
+        return [dict(item) for item in items]
 
     def _remote_manifest(self) -> dict[str, _RemoteNetwork]:
         with self._lock:
@@ -148,6 +202,8 @@ class PublicNetworkCatalog:
         name = str(raw_entry.get("name", "")).strip()
         url = str(raw_entry.get("url", "")).strip()
         sha256 = str(raw_entry.get("sha256", "")).strip().lower()
+        attractions_url = str(raw_entry.get("attractions_url", "")).strip()
+        attractions_sha256 = str(raw_entry.get("attractions_sha256", "")).strip().lower()
         if not _NETWORK_ID.fullmatch(network_id):
             raise ValueError("Manifest zawiera nieprawidłowy identyfikator sieci.")
         if not name or len(name) > 100:
@@ -155,6 +211,12 @@ class PublicNetworkCatalog:
         if not _SHA256.fullmatch(sha256):
             raise ValueError("Manifest zawiera nieprawidłową sumę SHA-256 sieci.")
         self._validate_url(url)
+        if bool(attractions_url) != bool(attractions_sha256):
+            raise ValueError("Manifest musi zawierać adres i sumę SHA-256 pliku atrakcji.")
+        if attractions_url:
+            if not _SHA256.fullmatch(attractions_sha256):
+                raise ValueError("Manifest zawiera nieprawidłową sumę SHA-256 atrakcji.")
+            self._validate_url(attractions_url)
 
         metadata: dict[str, Any] = {
             "id": network_id,
@@ -178,7 +240,13 @@ class PublicNetworkCatalog:
             west, south, east, north = (float(value) for value in bounds)
             if -180 <= west <= east <= 180 and -90 <= south <= north <= 90:
                 metadata["bounds"] = [west, south, east, north]
-        return _RemoteNetwork(metadata=metadata, url=url, sha256=sha256)
+        return _RemoteNetwork(
+            metadata=metadata,
+            url=url,
+            sha256=sha256,
+            attractions_url=attractions_url or None,
+            attractions_sha256=attractions_sha256 or None,
+        )
 
     def _validate_url(self, url: str) -> None:
         parsed = urlparse(url)

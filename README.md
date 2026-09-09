@@ -40,22 +40,24 @@ Kontener działa jako użytkownik bez uprawnień administratora i ma kod aplikac
 
 Pliki w `data/prepared` są duże i nie powinny być zapisywane przez funkcję Vercel. Zalecany układ to [publiczny Vercel Blob](https://vercel.com/docs/vercel-blob/public-storage) używany wyłącznie jako magazyn odczytu oraz mały manifest ze skrótami integralności.
 
-1. Uruchom aplikację pod `http://localhost:8000`, wybierz „Przygotuj zestaw administratorski”, wczytaj dane i zaczekaj na zapis pliku `data/prepared/IDENTYFIKATOR.json`.
+1. Uruchom aplikację pod `http://localhost:8000`, wybierz „Przygotuj zestaw administratorski”, wczytaj dane i zaczekaj na zapis plików `data/prepared/IDENTYFIKATOR.json` oraz `data/prepared/IDENTYFIKATOR.attractions.json`.
 2. W panelu projektu Vercel utwórz magazyn Blob z dostępem **Public** i połącz go z projektem.
 3. Połącz lokalny katalog z projektem (`vercel link`), a następnie prześlij przygotowany plik. Dla dużych plików CLI domyślnie używa uploadu multipart:
 
    ```powershell
    vercel blob put .\data\prepared\IDENTYFIKATOR.json
+   vercel blob put .\data\prepared\IDENTYFIKATOR.attractions.json
    ```
 
    Zapisz publiczny adres URL wypisany przez CLI. Token zapisu trzymaj wyłącznie w lokalnym środowisku publikującym i nigdy w frontendzie. Po publikacji aplikacja potrzebuje tylko publicznych adresów HTTPS — usuń `BLOB_READ_WRITE_TOKEN` ze środowiska produkcyjnej funkcji albo odłącz magazyn od projektu, jeżeli Vercel dodał token automatycznie.
-4. Oblicz SHA-256 przesłanego pliku:
+4. Oblicz SHA-256 obu przesłanych plików:
 
    ```powershell
    Get-FileHash -Algorithm SHA256 .\data\prepared\IDENTYFIKATOR.json
+   Get-FileHash -Algorithm SHA256 .\data\prepared\IDENTYFIKATOR.attractions.json
    ```
 
-5. Dodaj wpis do manifestu według [public-networks.example.json](public-networks.example.json). Przepisz metadane z `data/prepared/IDENTYFIKATOR.meta.json`, wstaw URL z kroku 3 i SHA-256 z kroku 4. Zachowaj w manifeście również wcześniejsze zestawy.
+5. Dodaj wpis do manifestu według [public-networks.example.json](public-networks.example.json). Przepisz metadane z `data/prepared/IDENTYFIKATOR.meta.json`, wstaw adresy i sumy SHA-256 obu plików. Zachowaj w manifeście również wcześniejsze zestawy. Mały plik atrakcji pozwala otworzyć edytor bez pobierania całego grafu.
 6. Oblicz SHA-256 gotowego manifestu i prześlij go do Blob pod nową, wersjonowaną nazwą:
 
    ```powershell

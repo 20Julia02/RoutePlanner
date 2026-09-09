@@ -5,6 +5,8 @@
       "name": "Warszawa — centrum",
       "url": "https://example.public.blob.vercel-storage.com/warszawa-centrum-v1.json",
       "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "attractions_url": "https://example.public.blob.vercel-storage.com/warszawa-centrum-v1.attractions.json",
+      "attractions_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "created_at": "2026-09-08T00:00:00Z",
       "nodes": 0,
       "edges": 0,

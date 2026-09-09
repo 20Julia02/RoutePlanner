@@ -45,7 +45,8 @@ htmlcov/
 data/prepared/
 data/uploads/
 uploads/
-public-networks.json
+public-networks*.json
+!public-networks.example.json
 
 # Python build artifacts
 build/
