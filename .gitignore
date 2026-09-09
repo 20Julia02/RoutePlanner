@@ -1,2 +1,73 @@
+# Python bytecode and caches
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Tests and coverage reports
+tests/
+test/
+test_*.py
+*_test.py
+*.test.js
+*.spec.js
+static/module-smoke-test.html
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# Linters, type checkers and notebook caches
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.cache/
+.ipynb_checkpoints/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Vercel local project metadata
+.vercel/
+
+# Locally prepared or uploaded datasets
+data/prepared/
+data/uploads/
+uploads/
+public-networks.json
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Logs, temporary files and local databases
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini

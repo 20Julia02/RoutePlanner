@@ -1,0 +1,15 @@
+{
+  "networks": [
+    {
+      "id": "warszawa-centrum-v1",
+      "name": "Warszawa — centrum",
+      "url": "https://example.public.blob.vercel-storage.com/warszawa-centrum-v1.json",
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "created_at": "2026-09-08T00:00:00Z",
+      "nodes": 0,
+      "edges": 0,
+      "attraction_vertices": 0,
+      "bounds": [20.9, 52.1, 21.2, 52.4]
+    }
+  ]
+}

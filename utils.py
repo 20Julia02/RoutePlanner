@@ -1,13 +1,19 @@
-import arcpy
+"""Small geometry-independent graph utilities."""
 
-def get_nearest_vertex_id(input_point, target_layer):
-    arcpy.analysis.Near(input_point, target_layer, "5000 METERS")
-    with arcpy.da.SearchCursor(input_point, ["NEAR_FID"]) as cursor:
-        near_fid = next(cursor)[0]
-    if near_fid !=-1:
-        where = f"OBJECTID = {near_fid}"
-        with arcpy.da.SearchCursor(target_layer, ["vertex_id"], where_clause=where) as cursor:
-            vertex_id = next(cursor)[0]
-        return vertex_id
-    else:
-        return None
+from __future__ import annotations
+
+import math
+from typing import Optional, Tuple
+
+from models import Graph
+
+
+def get_nearest_vertex_id(point_xy: Tuple[float, float], graph: Graph, maximum_distance: float) -> Optional[int]:
+    """Return the closest graph node in the graph coordinate system."""
+    closest_id = None
+    closest_distance = float("inf")
+    for node_id, node in graph.nodes.items():
+        distance = math.hypot(node.x - point_xy[0], node.y - point_xy[1])
+        if distance < closest_distance:
+            closest_id, closest_distance = node_id, distance
+    return closest_id if closest_distance <= maximum_distance else None

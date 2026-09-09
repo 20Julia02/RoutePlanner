@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Otwarty planer wielodniowych tras zwiedzania">
+  <meta name="referrer" content="no-referrer">
+  <title>Wanderplan — planer zwiedzania</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://tiles.openfreemap.org">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
+  <link rel="stylesheet" href="/static/styles.css?v=37">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <header class="brand">
+        <img class="brand-mark" src="/static/brand-logo.png?v=1" alt="">
+        <div><strong>Wanderplan</strong><span>planer tras zwiedzania</span></div>
+        <button class="mobile-panel-toggle" id="mobilePanelToggle" type="button" aria-expanded="true" aria-controls="planningControls" aria-label="Zwiń panel planowania">
+          <span class="mobile-panel-toggle-label">Zwiń</span><span class="mobile-panel-toggle-icon" aria-hidden="true">⌃</span>
+        </button>
+      </header>
+
+      <main class="controls" id="planningControls">
+        <section class="intro compact-intro">
+          <h1>Zaplanuj wakacje<br><em>krok po kroku</em></h1>
+          <p>Utwórz pełny plan zwiedzania w zaledwie trzech krótkich krokach</p>
+        </section>
+
+        <div class="steps" id="steps">
+          <section class="step-card active" id="dataStep">
+            <button class="step-head" type="button" data-step="dataStep">
+              <span class="step-index">1</span><span class="step-title"><strong>Wybierz dane</strong><small id="dataStepStatus">Wybierz zestaw</small></span><span class="step-chevron">⌄</span>
+            </button>
+            <div class="step-body">
+              <label>Wybierz zestaw
+                <select id="preparedNetwork"><option value="">Sprawdzam zapisane zestawy…</option></select>
+              </label>
+              <p class="step-note" id="preparedInfo">Wybierz zestaw przygotowany przez administratora.</p>
+              <div class="data-actions">
+                <button type="button" class="secondary-button" id="editAttractionsButton" hidden>Edytuj atrakcje</button>
+                <button type="button" class="text-button" id="newNetworkButton" hidden>+ Przygotuj zestaw administratorski</button>
+              </div>
+
+              <div id="preparationPanel" hidden>
+                <label class="file-drop" for="edgesFile">
+                  <input id="edgesFile" type="file" accept=".geojson,.json,application/geo+json,application/json">
+                  <span class="file-icon">↗</span><span><strong>Sieć piesza</strong><small id="edgesStatus">LineString / MultiLineString</small></span>
+                </label>
+                <label class="file-drop" for="attractionsFile">
+                  <input id="attractionsFile" type="file" accept=".geojson,.json,application/geo+json,application/json">
+                  <span class="file-icon">✦</span><span><strong>Atrakcje</strong><small id="attractionsStatus">Punkty z wagą i czasem</small></span>
+                </label>
+                <details class="advanced-settings">
+                  <summary>Ustawienia zaawansowane danych</summary>
+                  <div class="field-grid">
+                    <label class="span-2">Pole czasu przejścia<select id="edgeTime"><option value="">Oblicz z długości</option></select></label>
+                    <label>Jednostka czasu przejścia<select id="edgeTimeUnit"><option value="seconds">sekundy</option><option value="minutes">minuty</option><option value="hours">godziny</option></select></label>
+                    <label>Prędkość poruszania<div class="input-unit"><input id="walkingSpeed" type="number" min="0.1" step="0.1" value="1.4"><span>m/s</span></div></label>
+                    <label>Pole wagi atrakcji<select id="attractionWeight"><option value="">Wybierz pole</option></select></label>
+                    <label>Pole czasu zwiedzania<select id="attractionDuration"><option value="">Wybierz pole</option></select></label>
+                    <label>Pole nazwy atrakcji<select id="attractionName"><option value="">— bez nazwy —</option></select></label>
+                    <label>Pole adresu zdjęcia<select id="attractionImage"><option value="">— bez zdjęcia —</option></select></label>
+                    <label class="span-2">Pole opisu atrakcji<select id="attractionDescription"><option value="">— bez opisu —</option></select></label>
+                    <label>Tolerancja topologii<div class="input-unit"><input id="topologyTolerance" type="number" min="0.01" step="0.1" value="1"><span>m</span></div></label>
+                    <label>Dowiązanie atrakcji<div class="input-unit"><input id="snapDistance" type="number" min="1" value="500"><span>m</span></div></label>
+                    <label>Jednostka czasu zwiedzania<select id="attractionDurationUnit"><option value="minutes">minuty</option><option value="seconds">sekundy</option><option value="hours">godziny</option></select></label>
+                  </div>
+                </details>
+
+                <label class="network-name">Nazwa zestawu<input id="networkName" type="text" maxlength="100" placeholder="np. Warszawa — centrum"></label>
+                <button type="button" class="secondary-button wide" id="prepareButton">Przygotuj zestaw</button>
+                <p class="step-note">Narzędzie administratorskie działa wyłącznie lokalnie. Gotowy zestaw zostanie zapisany w katalogu <code>data/prepared</code>, skąd można opublikować go w Vercel Blob.</p>
+                <div id="prepareMessage" class="message success" hidden></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="step-card locked" id="startStep">
+            <button class="step-head" type="button" data-step="startStep">
+              <span class="step-index">2</span><span class="step-title"><strong>Wskaż punkt początkowy</strong><small id="startStepStatus">Najpierw wybierz dane</small></span><span class="step-chevron">⌄</span>
+            </button>
+            <div class="step-body">
+              <p class="step-note">Kliknij przycisk Wybierz punkt na mapie, a następnie wskaż na mapie lokalizację hotelu. Możesz też wpisać współrzędne.</p>
+              <button type="button" class="map-select-button" id="startMapButton">Wybierz punkt na mapie</button>
+              <div class="field-grid">
+                <label>Szerokość<input id="startLat" type="number" step="any" placeholder="52.2302"></label>
+                <label>Długość<input id="startLon" type="number" step="any" placeholder="21.0113"></label>
+              </div>
+            </div>
+          </section>
+
+          <section class="step-card locked" id="planStep">
+            <button class="step-head" type="button" data-step="planStep">
+              <span class="step-index">3</span><span class="step-title"><strong>Określ szczegóły planu</strong><small id="planStepStatus">Najpierw ustaw początek</small></span><span class="step-chevron">⌄</span>
+            </button>
+            <div class="step-body">
+              <div class="field-grid">
+                <label>Liczba dni<input id="days" type="number" min="1" max="14" value="2"></label>
+                <label>Dzienny czas zwiedzania<div class="input-unit"><input id="maxHours" type="number" min="0.5" max="24" step="0.5" value="8"><span>h</span></div></label>
+              </div>
+              <details class="advanced-settings compact">
+                <summary>Dostosuj swój plan</summary>
+                <div class="field-grid">
+                  <label>Atrakcji głównych / dzień<input id="mustSee" type="number" min="1" max="10" value="2"></label>
+                  <label>Promień dodatkowych<div class="input-unit"><input id="nearbyDistance" type="number" min="1" value="500"><span>m</span></div></label>
+                </div>
+              </details>
+              <button id="planButton" class="primary-button" type="button"><span>Wyznacz plan</span><span aria-hidden="true">→</span></button>
+            </div>
+          </section>
+        </div>
+        <div id="formError" class="message error" hidden></div>
+      </main>
+    </aside>
+
+    <section class="workspace" aria-label="Mapa i wynik">
+      <div id="map"></div>
+      <section class="results" id="results" aria-live="polite" hidden>
+        <div class="progress-panel" id="progressPanel" hidden>
+          <div class="progress-head"><div><p class="eyebrow" id="progressEyebrow">Wyznaczanie trasy</p><h2 id="progressTitle">Przygotowuję plan…</h2></div><strong id="progressPercent">0%</strong></div>
+          <div class="progress-track"><span id="progressBar"></span></div>
+          <p id="progressMessage">Rozpoczynam przetwarzanie.</p>
+        </div>
+        <div id="resultsContent" hidden>
+          <div class="results-head"><div><p class="eyebrow">Gotowy plan</p><h2>Plan zwiedzania</h2></div></div>
+          <div id="warnings"></div>
+          <div id="dayCards" class="day-cards"></div>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <div class="editor-backdrop" id="attractionEditor" role="dialog" aria-modal="true" aria-labelledby="attractionEditorTitle" hidden>
+    <section class="editor-dialog">
+      <header class="editor-head">
+        <h2 id="attractionEditorTitle">Edytuj atrakcje</h2>
+        <button type="button" class="editor-close" id="closeAttractionEditor" aria-label="Zamknij">&times;</button>
+      </header>
+      <p class="editor-intro" id="attractionEditorIntro"></p>
+      <div class="editor-toolbar">
+        <input type="search" id="attractionSearch" placeholder="Szukaj atrakcji…" aria-label="Szukaj atrakcji">
+        <label class="editor-all"><input type="checkbox" id="toggleAllAttractions"> Włącz wszystkie widoczne</label>
+      </div>
+      <div class="editor-table-wrap">
+        <table class="editor-table">
+          <thead><tr><th>Uwzględnij</th><th>Atrakcja</th><th>Waga</th><th>Czas zwiedzania</th></tr></thead>
+          <tbody id="attractionEditorRows"></tbody>
+        </table>
+      </div>
+      <footer class="editor-footer">
+        <span id="attractionEditorCount"></span>
+        <div>
+          <button type="button" class="text-button" id="cancelAttractionEditor">Anuluj</button>
+          <button type="button" class="secondary-button editor-save" id="saveAttractionEditor">Zapisz lokalnie</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js" integrity="sha384-tXYNKOHx4T02jMP7YYCtBxPIv1B5gaA5mcVPBzqMp6d7VzWzxJgI2aWF/nJLrQdS" crossorigin="anonymous"></script>
+  <script type="module" src="/static/app.js?v=59"></script>
+</body>
+</html>
