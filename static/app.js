@@ -154,7 +154,7 @@ function updatePreparedInfo() {
   const reference = networkReference(select.value);
   byId("editAttractionsButton").hidden = !reference;
   byId("preparedInfo").textContent = select.value
-    ? "Zestaw jest przygotowany przez administratora; ustawienia atrakcji zapisują się lokalnie w tej przeglądarce."
+    ? "Wybrano zestaw z listy dostępnych. Możesz rozpocząć planowanie trasy lub edytować atrakcje."
     : select.disabled
       ? "Nie ma jeszcze dostępnych przygotowanych zestawów."
       : localAdminEnabled
@@ -282,7 +282,7 @@ async function openAttractionEditor() {
     if (!response.ok) throw new Error(apiErrorMessage(data, "Nie udało się wczytać atrakcji."));
     const saved = new Map((state.publicAttractionEdits || []).map(edit => [String(edit.id), edit]));
     editorRows = (data.items || []).map(item => ({ ...item, ...(saved.get(String(item.id)) || {}) }));
-    byId("attractionEditorIntro").textContent = "Zmiany dotyczą tylko tej przeglądarki. Przygotowany zestaw pozostanie bez zmian.";
+    byId("attractionEditorIntro").textContent = "Możesz włączać i wyłączać atrakcje oraz zmieniać czas potrzebny na ich zwiedzenie, dostosowując plan do swoich preferencji.";
     editorReference = reference;
     byId("attractionSearch").value = "";
     renderEditorRows();
