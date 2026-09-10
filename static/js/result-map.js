@@ -25,6 +25,9 @@ const METERS_PER_LATITUDE_DEGREE = 111_320;
 export function clearResultMap() {
   clearMapLayers(state.resultLayers);
   state.dayLayers = {};
+  const legend = byId("mobileMapLegend");
+  legend.hidden = true;
+  legend.textContent = "";
 }
 
 
@@ -71,11 +74,29 @@ function showResultPanel(result) {
   );
   renderWarnings(warnings, visibleWarnings, "Pokaż pominięte obiekty i ostrzeżenia");
   byId("dayCards").innerHTML = result.days.map(renderDayCard).join("");
+  renderMobileMapLegend(result.days);
   document.querySelectorAll("[data-day-toggle]").forEach(toggle => (
     toggle.addEventListener("change", event => {
       setDayVisibility(Number(event.target.dataset.dayToggle), event.target.checked);
     })
   ));
+}
+
+
+function renderMobileMapLegend(days) {
+  const legend = byId("mobileMapLegend");
+  legend.classList.toggle("many-days", days.length > 5);
+  legend.innerHTML = '<strong>Trasy</strong><div class="mobile-map-legend-list">'
+    + days.map(day => {
+      const dayNumber = Number(day.day);
+      const color = DAY_COLORS[(dayNumber - 1) % DAY_COLORS.length];
+      return '<label class="mobile-map-legend-item">'
+        + `<input type="checkbox" data-day-toggle="${dayNumber}" checked aria-label="Pokaż trasę dnia ${dayNumber}">`
+        + `<i style="--legend-color:${color}" aria-hidden="true"></i>`
+        + `<span>Dzień ${dayNumber}</span></label>`;
+    }).join("")
+    + "</div>";
+  legend.hidden = false;
 }
 
 
@@ -91,7 +112,7 @@ function renderDayCard(day) {
   return `<article class="day-card" data-day-card="${day.day}">`
     + '<div class="day-card-head"><div>'
     + `<div class="day-number"><i style="background:${color}"></i>Dzień ${day.day}</div>`
-    + `<div class="day-stats">${duration} · waga ${day.total_weight}</div>`
+    + `<div class="day-stats">${duration}</div>`
     + '</div><label class="day-visibility">'
     + `<input type="checkbox" data-day-toggle="${day.day}" checked>`
     + '<span aria-hidden="true"></span><em>Pokaż</em></label></div>'
@@ -303,6 +324,9 @@ function setDayVisibility(day, visible) {
   (state.dayLayers[day] || []).forEach(layer => {
     if (visible && !map.hasLayer(layer)) map.addLayer(layer);
     if (!visible && map.hasLayer(layer)) map.removeLayer(layer);
+  });
+  document.querySelectorAll(`[data-day-toggle="${day}"]`).forEach(toggle => {
+    toggle.checked = visible;
   });
   document.querySelector(`[data-day-card="${day}"]`)?.classList.toggle("day-hidden", !visible);
   fitVisibleRoutes();

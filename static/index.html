@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://tiles.openfreemap.org">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/styles.css?v=39">
+  <link rel="stylesheet" href="/static/styles.css?v=41">
 </head>
 <body>
   <div class="app-shell">
@@ -118,6 +118,7 @@
 
     <section class="workspace" aria-label="Mapa i wynik">
       <div id="map"></div>
+      <aside class="mobile-map-legend" id="mobileMapLegend" aria-label="Widoczność tras na mapie" hidden></aside>
       <section class="results" id="results" aria-live="polite" hidden>
         <div class="mobile-results-toolbar" aria-label="Rozmiar widoku wyniku">
           <button type="button" id="mobileShowMap" aria-label="Pokaż mapę na całym ekranie">Mapa</button>
@@ -170,6 +171,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js" integrity="sha384-tXYNKOHx4T02jMP7YYCtBxPIv1B5gaA5mcVPBzqMp6d7VzWzxJgI2aWF/nJLrQdS" crossorigin="anonymous"></script>
-  <script type="module" src="/static/app.js?v=64"></script>
+  <script type="module" src="/static/app.js?v=66"></script>
 </body>
 </html>

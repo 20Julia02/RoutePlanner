@@ -113,7 +113,7 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
 .leaflet-control-zoom a { color: var(--ink) !important; }
 .results { position: absolute; z-index: 6; left: 24px; right: 24px; bottom: 24px; max-height: 42%; overflow: auto; background: rgba(255,253,248,.97); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.65); border-radius: 16px; box-shadow: var(--shadow); }
 .results.has-plan { top: 24px; right: 24px; bottom: 24px; left: auto; width: 370px; max-height: none; margin: 0; }
-.mobile-results-toolbar, .mobile-edit-plan { display: none; }
+.mobile-results-toolbar, .mobile-edit-plan, .mobile-map-legend { display: none; }
 .guide-results { max-width: 940px; margin: 0 auto; }
 .guide-panel { min-height: 122px; padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
 .guide-copy h2 { margin: 0; font: 400 23px Georgia, serif; }
@@ -235,7 +235,18 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
   .mobile-panel-toggle-icon { font-size: 15px; transition: transform .2s ease; }
   .sidebar.mobile-collapsed .mobile-panel-toggle-icon { transform: rotate(180deg); }
   .controls { padding-top: 22px; padding-bottom: 28px; }
+  #startStep .field-grid, #planStep .field-grid { grid-template-columns: 1fr; }
   .workspace { height: 100vh; height: 100dvh; min-height: 0; }
+  .mobile-map-legend:not([hidden]) { position: absolute; z-index: 5; top: 12px; left: 12px; display: block; min-width: 108px; max-width: calc(100% - 24px); padding: 9px 10px 10px; border: 1px solid rgba(255,255,255,.72); border-radius: 11px; background: rgba(255,253,248,.94); box-shadow: 0 7px 22px rgba(23,54,45,.18); backdrop-filter: blur(9px); }
+  .mobile-map-legend > strong { display: block; margin-bottom: 5px; color: var(--muted); font-size: 9px; letter-spacing: .09em; text-transform: uppercase; }
+  .mobile-map-legend-list { display: grid; gap: 3px; }
+  .mobile-map-legend.many-days .mobile-map-legend-list { grid-template-columns: repeat(2, minmax(78px, 1fr)); column-gap: 9px; }
+  .mobile-map-legend-item { min-height: 25px; display: flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+  .mobile-map-legend-item input { width: 15px; height: 15px; margin: 0; flex: 0 0 15px; accent-color: var(--ink); }
+  .mobile-map-legend-item i { width: 16px; height: 4px; flex: 0 0 16px; border-radius: 4px; background: var(--legend-color); box-shadow: 0 1px 2px rgba(23,54,45,.18); }
+  .mobile-map-legend-item span { color: var(--ink); font-size: 10px; font-weight: 800; }
+  .mobile-map-legend-item:has(input:not(:checked)) { opacity: .45; }
+  .mobile-map-legend-item input:focus-visible { outline: 3px solid rgba(242,106,61,.25); outline-offset: 2px; }
   .results { max-height: 47%; }
   .results.has-plan { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 46%; max-height: none; display: flex; flex-direction: column; overflow: hidden; border-width: 1px 0 0; border-radius: 18px 18px 0 0; transition: height .24s ease; }
   .results.has-plan[data-mobile-view="map"] { height: 56px; }

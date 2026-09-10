@@ -1,5 +1,5 @@
 import { map, mapFitOptions, state } from "./js/map-context.js?v=12";
-import { clearResultMap, renderResult } from "./js/result-map.js?v=20";
+import { clearResultMap, renderResult } from "./js/result-map.js?v=22";
 import { apiErrorMessage, byId } from "./js/ui-utils.js?v=5";
 import {
   loadPublicNetworkEdits,
