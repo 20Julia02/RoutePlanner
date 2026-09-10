@@ -55,6 +55,9 @@ button { color: inherit; }
 .step-note { margin: 11px 0; color: var(--muted); font-size: 11px; }
 .map-select-button { width: 100%; height: 41px; margin-bottom: 11px; border: 1px solid var(--ink); border-radius: 8px; background: #fff; color: var(--ink); font-size: 11px; font-weight: 800; cursor: pointer; }
 .map-select-button:hover, .map-select-button.active { background: var(--ink); color: #fff; }
+.location-button { margin-top: 0; border-color: #c9d2ca; background: #f4f6f0; }
+.location-button:disabled { opacity: .6; cursor: wait; }
+.message.start-location-message { margin: 0 0 11px; font-size: 10px; }
 #map.selecting-start { cursor: crosshair; }
 .preparation-callout { display: flex; flex-direction: column; gap: 2px; margin: 12px 0; padding: 10px 11px; background: #fff6e9; border-left: 3px solid var(--orange); border-radius: 5px 9px 9px 5px; }
 .preparation-callout strong { font-size: 11px; }
@@ -114,7 +117,7 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
 .leaflet-control-zoom a { color: var(--ink) !important; }
 .results { position: absolute; z-index: 6; left: 24px; right: 24px; bottom: 24px; max-height: 42%; overflow: auto; background: rgba(255,253,248,.97); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.65); border-radius: 16px; box-shadow: var(--shadow); }
 .results.has-plan { top: 24px; right: 24px; bottom: 24px; left: auto; width: 370px; max-height: none; margin: 0; }
-.mobile-results-toolbar, .mobile-edit-plan, .mobile-map-legend { display: none; }
+.mobile-results-toolbar, .mobile-result-actions, .mobile-map-legend { display: none; }
 .guide-results { max-width: 940px; margin: 0 auto; }
 .guide-panel { min-height: 122px; padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
 .guide-copy h2 { margin: 0; font: 400 23px Georgia, serif; }
@@ -221,6 +224,8 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
 .editor-footer > span { color: var(--muted); font-size: 11px; }
 .editor-footer > div { display: flex; gap: 9px; }
 .editor-save { width: auto; height: 40px; margin: 0; padding: 0 16px; }
+.editor-plan { width: auto; height: 40px; margin: 0; padding: 0 16px; border-radius: 8px; }
+.editor-plan[hidden] { display: none; }
 .editor-backdrop[hidden] { display: none; }
 
 @media (max-width: 900px) {
@@ -263,8 +268,10 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
   .mobile-results-toolbar .mobile-results-drag { display: grid; place-items: center; height: 44px; padding: 0; touch-action: none; cursor: grab; background: transparent; }
   .mobile-results-toolbar .mobile-results-drag:active { cursor: grabbing; }
   .mobile-results-drag > span { width: 52px; height: 5px; border-radius: 6px; background: #b9c1bb; }
-  .mobile-results-toolbar > button:focus-visible, .mobile-edit-plan:focus-visible { outline: 3px solid rgba(242,106,61,.25); }
-  .mobile-edit-plan { display: inline-flex; align-items: center; min-height: 34px; padding: 0 10px; border: 1px solid #d5dcd3; border-radius: 18px; background: #fff; color: var(--ink); font-size: 10px; font-weight: 800; cursor: pointer; }
+  .mobile-results-toolbar > button:focus-visible, .mobile-result-actions button:focus-visible { outline: 3px solid rgba(242,106,61,.25); }
+  .mobile-result-actions { display: grid; gap: 6px; justify-items: stretch; width: 132px; }
+  .mobile-result-actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 5px 10px; border: 1px solid #d5dcd3; border-radius: 18px; background: #fff; color: var(--ink); font-size: 10px; font-weight: 800; line-height: 1.2; text-align: center; cursor: pointer; }
+  .mobile-result-actions .mobile-edit-attractions { border-color: var(--ink); background: var(--ink); color: #fff; }
   .guide-panel { align-items: flex-start; flex-direction: column; gap: 14px; }
 }
 
@@ -284,5 +291,5 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
   .editor-backdrop { padding: 8px; }
   .editor-dialog { max-height: calc(100vh - 16px); }
   .editor-toolbar, .editor-footer { align-items: stretch; flex-direction: column; }
-  .editor-footer > div { justify-content: flex-end; }
+  .editor-footer > div { flex-wrap: wrap; justify-content: flex-end; }
 }

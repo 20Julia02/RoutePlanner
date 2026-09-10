@@ -13,9 +13,11 @@ let startReady = false;
 let selectingStart = false;
 const mobileLayout = window.matchMedia("(max-width: 900px)");
 const PUBLIC_PREFIX = "public:";
+const START_SNAP_DISTANCE_METERS = 5000;
 let localAdminEnabled = false;
 let editorRows = [];
 let editorReference = null;
+let geolocationRequestId = 0;
 
 
 function networkReference(value) {
@@ -41,6 +43,9 @@ function setMobilePlanningPanel(collapsed) {
 function setMobileResultView(view) {
   const results = byId("results");
   if (!results.classList.contains("has-plan")) return;
+  if (mobileLayout.matches && state.result) {
+    document.querySelector(".app-shell").classList.add("mobile-results-layout");
+  }
   results.classList.remove("is-dragging");
   results.style.removeProperty("height");
   results.dataset.mobileView = view;
@@ -137,6 +142,11 @@ mobileResultsDrag.addEventListener("keydown", event => {
 
 byId("mobilePanelToggle").addEventListener("click", () => {
   const collapsed = document.querySelector(".sidebar").classList.contains("mobile-collapsed");
+  if (mobileLayout.matches && state.result && !collapsed && byId("results").classList.contains("has-plan")) {
+    activateMobileResultLayout();
+    setMobileResultView("split");
+    return;
+  }
   setMobilePlanningPanel(!collapsed);
 });
 
@@ -372,8 +382,8 @@ async function openAttractionEditor() {
   hideError();
   const reference = networkReference(byId("preparedNetwork").value);
   if (!reference) return;
-  const button = byId("editAttractionsButton");
-  button.disabled = true;
+  const openButtons = [byId("editAttractionsButton"), byId("resultEditAttractions")];
+  openButtons.forEach(button => { button.disabled = true; });
   try {
     const response = await fetch(`/api/networks/${encodeURIComponent(reference.id)}/attractions`);
     const data = await response.json();
@@ -384,14 +394,22 @@ async function openAttractionEditor() {
     editorReference = reference;
     byId("attractionSearch").value = "";
     renderEditorRows();
+    const canPlan = dataReady && startReady
+      && Boolean(networkReference(byId("preparedNetwork").value))
+      && ["days", "maxHours", "mustSee", "nearbyDistance"]
+        .every(id => byId(id).value !== "" && byId(id).checkValidity());
+    byId("planFromAttractionEditor").hidden = !canPlan;
     byId("attractionEditor").hidden = false;
     byId("attractionSearch").focus();
   } finally {
-    button.disabled = false;
+    openButtons.forEach(button => { button.disabled = false; });
   }
 }
 
 byId("editAttractionsButton").addEventListener("click", () => {
+  openAttractionEditor().catch(error => showError(error.message));
+});
+byId("resultEditAttractions").addEventListener("click", () => {
   openAttractionEditor().catch(error => showError(error.message));
 });
 byId("closeAttractionEditor").addEventListener("click", closeAttractionEditor);
@@ -420,13 +438,13 @@ byId("attractionEditorRows").addEventListener("change", event => {
   updateEditorSummary();
 });
 
-byId("saveAttractionEditor").addEventListener("click", async () => {
-  if (!editorReference) return;
+async function saveAttractionEditorChanges() {
+  if (!editorReference) return false;
   const reference = editorReference;
   const invalid = editorRows.find(row => !Number.isFinite(Number(row.duration_seconds)) || Number(row.duration_seconds) < 0);
   if (invalid) {
     showError(`Podaj poprawny czas zwiedzania atrakcji: ${invalid.name}.`);
-    return;
+    return false;
   }
   const edits = editorRows.map(row => ({
     id: row.id,
@@ -434,18 +452,34 @@ byId("saveAttractionEditor").addEventListener("click", async () => {
     duration_seconds: Math.round(Number(row.duration_seconds) * 100) / 100
   }));
   const saveButton = byId("saveAttractionEditor");
+  const editorPlanButton = byId("planFromAttractionEditor");
   saveButton.disabled = true;
+  editorPlanButton.disabled = true;
   try {
     await requestPersistentLocalStorage();
     await savePublicNetworkEdits(reference.id, edits);
     state.publicAttractionEdits = edits;
-    closeAttractionEditor();
     updatePreparedInfo();
+    return true;
   } catch (error) {
     showError(error.message);
+    return false;
   } finally {
     saveButton.disabled = false;
+    editorPlanButton.disabled = false;
   }
+}
+
+byId("saveAttractionEditor").addEventListener("click", async () => {
+  if (await saveAttractionEditorChanges()) closeAttractionEditor();
+});
+
+byId("planFromAttractionEditor").addEventListener("click", async () => {
+  if (!dataReady || !startReady) return;
+  const saved = await saveAttractionEditorChanges();
+  if (!saved) return;
+  closeAttractionEditor();
+  byId("planButton").click();
 });
 
 function setStart(lat, lon) {
@@ -474,6 +508,9 @@ function setStart(lat, lon) {
 }
 
 function clearStart() {
+  geolocationRequestId += 1;
+  setGeolocationBusy(false);
+  hideStartLocationMessage();
   startReady = false;
   stopStartSelection();
   if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
@@ -518,8 +555,80 @@ function stopStartSelection() {
 }
 
 byId("startMapButton").addEventListener("click", () => {
+  hideStartLocationMessage();
   if (selectingStart) stopStartSelection();
   else beginStartSelection();
+});
+
+function setGeolocationBusy(active) {
+  const button = byId("useCurrentLocationButton");
+  button.disabled = active;
+  button.textContent = active ? "Ustalam lokalizację…" : "Użyj mojej lokalizacji";
+}
+
+function showStartLocationError(message) {
+  const element = byId("startLocationMessage");
+  element.className = "message error start-location-message";
+  element.textContent = message;
+  element.hidden = false;
+}
+
+function hideStartLocationMessage() {
+  byId("startLocationMessage").hidden = true;
+}
+
+function activeNetworkBounds() {
+  const selectionId = byId("preparedNetwork").value;
+  const preparedBounds = state.networkMetadata[selectionId]?.bounds;
+  if (Array.isArray(preparedBounds) && preparedBounds.length === 4) return preparedBounds;
+  return collectionBounds(state.edges, state.attractions);
+}
+
+function distanceFromBounds(lat, lon, bounds) {
+  const closestLon = Math.max(bounds[0], Math.min(bounds[2], lon));
+  const closestLat = Math.max(bounds[1], Math.min(bounds[3], lat));
+  return map.distance([lat, lon], [closestLat, closestLon]);
+}
+
+function geolocationErrorMessage(error) {
+  if (error?.code === 1) return "Nie udzielono dostępu do lokalizacji. Możesz nadal wskazać punkt na mapie.";
+  if (error?.code === 3) return "Ustalanie lokalizacji trwało zbyt długo. Spróbuj ponownie lub wskaż punkt na mapie.";
+  return "Nie udało się ustalić lokalizacji. Sprawdź ustawienia urządzenia lub wskaż punkt na mapie.";
+}
+
+byId("useCurrentLocationButton").addEventListener("click", () => {
+  hideStartLocationMessage();
+  if (!navigator.geolocation) {
+    showStartLocationError("Ta przeglądarka nie udostępnia lokalizacji. Wskaż punkt na mapie.");
+    return;
+  }
+  const requestId = ++geolocationRequestId;
+  setGeolocationBusy(true);
+  navigator.geolocation.getCurrentPosition(position => {
+    if (requestId !== geolocationRequestId) return;
+    setGeolocationBusy(false);
+    const lat = Number(position.coords.latitude);
+    const lon = Number(position.coords.longitude);
+    const bounds = activeNetworkBounds();
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      showStartLocationError("Urządzenie zwróciło nieprawidłową lokalizację. Wskaż punkt na mapie.");
+      return;
+    }
+    if (bounds && distanceFromBounds(lat, lon, bounds) > START_SNAP_DISTANCE_METERS) {
+      showStartLocationError("Twoja lokalizacja znajduje się poza obszarem wybranego zestawu. Mapa pozostaje na planowanym obszarze — wskaż punkt startowy ręcznie.");
+      return;
+    }
+    setStart(lat, lon);
+    byId("startStepStatus").textContent = "Twoja lokalizacja ustawiona";
+  }, error => {
+    if (requestId !== geolocationRequestId) return;
+    setGeolocationBusy(false);
+    showStartLocationError(geolocationErrorMessage(error));
+  }, {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 60000
+  });
 });
 
 map.on("click", event => {
@@ -634,7 +743,7 @@ function commonOptions() {
     days: numberValue("days"), max_hours_per_day: numberValue("maxHours"),
     must_see_per_day: numberValue("mustSee"), nearby_distance_m: numberValue("nearbyDistance"),
     topology_tolerance_m: numberValue("topologyTolerance"), snap_distance_m: numberValue("snapDistance"),
-    start_snap_distance_m: 5000, walking_speed_mps: numberValue("walkingSpeed")
+    start_snap_distance_m: START_SNAP_DISTANCE_METERS, walking_speed_mps: numberValue("walkingSpeed")
   };
 }
 

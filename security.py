@@ -124,7 +124,7 @@ class SecurityHeadersMiddleware:
                 add_default("Referrer-Policy", "no-referrer")
                 add_default(
                     "Permissions-Policy",
-                    "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+                    "camera=(), microphone=(), geolocation=(self), payment=(), usb=()",
                 )
                 add_default("Cross-Origin-Opener-Policy", "same-origin")
                 add_default("Cross-Origin-Resource-Policy", "same-origin")
