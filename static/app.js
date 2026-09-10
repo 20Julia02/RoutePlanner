@@ -78,19 +78,23 @@ byId("mobileEditPlan").addEventListener("click", () => {
 const mobileResultsDrag = byId("mobileResultsDrag");
 let resultDragStartY = 0;
 let resultDragStartHeight = 0;
+let resultDragStartView = "split";
+let resultDragPointerId = null;
 
 mobileResultsDrag.addEventListener("pointerdown", event => {
   if (!mobileLayout.matches) return;
   const results = byId("results");
   resultDragStartY = event.clientY;
   resultDragStartHeight = results.getBoundingClientRect().height;
+  resultDragStartView = results.dataset.mobileView || "split";
+  resultDragPointerId = event.pointerId;
   results.classList.add("is-dragging");
   results.style.height = `${resultDragStartHeight}px`;
   mobileResultsDrag.setPointerCapture(event.pointerId);
 });
 
 mobileResultsDrag.addEventListener("pointermove", event => {
-  if (!mobileResultsDrag.hasPointerCapture(event.pointerId)) return;
+  if (event.pointerId !== resultDragPointerId) return;
   const results = byId("results");
   const workspaceHeight = document.querySelector(".workspace").getBoundingClientRect().height;
   const nextHeight = Math.max(56, Math.min(workspaceHeight, resultDragStartHeight + resultDragStartY - event.clientY));
@@ -98,12 +102,25 @@ mobileResultsDrag.addEventListener("pointermove", event => {
 });
 
 function finishResultDrag(event) {
-  if (!mobileResultsDrag.hasPointerCapture(event.pointerId)) return;
-  mobileResultsDrag.releasePointerCapture(event.pointerId);
+  if (event.pointerId !== resultDragPointerId) return;
+  if (mobileResultsDrag.hasPointerCapture(event.pointerId)) {
+    mobileResultsDrag.releasePointerCapture(event.pointerId);
+  }
   const results = byId("results");
   const workspaceHeight = document.querySelector(".workspace").getBoundingClientRect().height;
   const ratio = results.getBoundingClientRect().height / workspaceHeight;
-  setMobileResultView(ratio < .25 ? "map" : ratio > .75 ? "plan" : "split");
+  const dragDistance = event.clientY - resultDragStartY;
+  resultDragPointerId = null;
+
+  if (event.type === "pointercancel") {
+    setMobileResultView(resultDragStartView);
+  } else if (Math.abs(dragDistance) < 12) {
+    setMobileResultView(resultDragStartView === "split" ? "plan" : "split");
+  } else if (dragDistance > 0) {
+    setMobileResultView(resultDragStartView === "plan" && ratio >= .35 ? "split" : "map");
+  } else {
+    setMobileResultView(resultDragStartView === "map" && ratio <= .65 ? "split" : "plan");
+  }
 }
 
 mobileResultsDrag.addEventListener("pointerup", finishResultDrag);

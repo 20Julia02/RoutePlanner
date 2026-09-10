@@ -239,6 +239,7 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
   #startStep .field-grid, #planStep .field-grid { grid-template-columns: 1fr; }
   .workspace { height: 100vh; height: 100dvh; min-height: 0; }
   .mobile-map-legend:not([hidden]) { position: absolute; z-index: 5; top: 12px; left: 12px; display: block; min-width: 108px; max-width: calc(100% - 24px); padding: 9px 10px 10px; border: 1px solid rgba(255,255,255,.72); border-radius: 11px; background: rgba(255,253,248,.94); box-shadow: 0 7px 22px rgba(23,54,45,.18); backdrop-filter: blur(9px); }
+  .app-shell:not(.mobile-results-layout) .mobile-map-legend:not([hidden]) { top: 76px; }
   .mobile-map-legend > strong { display: block; margin-bottom: 5px; color: var(--muted); font-size: 9px; letter-spacing: .09em; text-transform: uppercase; }
   .mobile-map-legend-list { display: grid; gap: 3px; }
   .mobile-map-legend.many-days .mobile-map-legend-list { grid-template-columns: repeat(2, minmax(78px, 1fr)); column-gap: 9px; }
