@@ -6,7 +6,7 @@ import {
   map,
   mapFitOptions,
   state
-} from "./map-context.js?v=10";
+} from "./map-context.js?v=11";
 import {
   byId,
   escapeHtml,
@@ -32,8 +32,8 @@ export function clearResultMap() {
 export function renderResult(result) {
   clearResultMap();
   result.days.forEach(day => renderDayLayers(day));
-  fitAllResultLayers();
   showResultPanel(result);
+  fitAllResultLayers();
 }
 
 

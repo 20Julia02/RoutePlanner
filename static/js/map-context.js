@@ -124,7 +124,17 @@ export function clearMapLayers(layers) {
 }
 
 export function mapFitOptions() {
-  return window.innerWidth > 900
-    ? { paddingTopLeft: [30, 30], paddingBottomRight: [410, 30] }
-    : { padding: [20, 20] };
+  if (window.innerWidth > 900) {
+    return { paddingTopLeft: [30, 30], paddingBottomRight: [410, 30] };
+  }
+  const results = document.getElementById("results");
+  if (results?.classList.contains("has-plan") && results.dataset.mobileView !== "map") {
+    const resultHeight = results.getBoundingClientRect().height;
+    const maximumPadding = Math.round(window.innerHeight * .7);
+    return {
+      paddingTopLeft: [20, 20],
+      paddingBottomRight: [20, Math.min(maximumPadding, Math.round(resultHeight) + 20)]
+    };
+  }
+  return { padding: [20, 20] };
 }

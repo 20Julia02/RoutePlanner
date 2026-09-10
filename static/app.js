@@ -1,5 +1,5 @@
-import { map, state } from "./js/map-context.js?v=10";
-import { clearResultMap, renderResult } from "./js/result-map.js?v=19";
+import { map, mapFitOptions, state } from "./js/map-context.js?v=11";
+import { clearResultMap, renderResult } from "./js/result-map.js?v=20";
 import { apiErrorMessage, byId } from "./js/ui-utils.js?v=5";
 import {
   loadPublicNetworkEdits,
@@ -37,6 +37,86 @@ function setMobilePlanningPanel(collapsed) {
   toggle.querySelector(".mobile-panel-toggle-label").textContent = shouldCollapse ? "Rozwiń" : "Zwiń";
   window.setTimeout(() => map.invalidateSize(), 220);
 }
+
+function setMobileResultView(view) {
+  const results = byId("results");
+  if (!results.classList.contains("has-plan")) return;
+  results.classList.remove("is-dragging");
+  results.style.removeProperty("height");
+  results.dataset.mobileView = view;
+  byId("mobileShowMap").setAttribute("aria-pressed", String(view === "map"));
+  byId("mobileShowPlan").setAttribute("aria-pressed", String(view === "plan"));
+  window.setTimeout(() => {
+    map.invalidateSize();
+    if (view === "plan" || !state.resultLayers.length) return;
+    const bounds = L.featureGroup(state.resultLayers).getBounds();
+    if (bounds.isValid()) map.fitBounds(bounds.pad(.08), mapFitOptions());
+  }, 250);
+}
+
+function activateMobileResultLayout() {
+  document.querySelector(".app-shell").classList.add("mobile-results-layout");
+  map.invalidateSize({ pan: false });
+}
+
+function deactivateMobileResultLayout() {
+  document.querySelector(".app-shell").classList.remove("mobile-results-layout");
+  const results = byId("results");
+  results.classList.remove("is-dragging");
+  results.style.removeProperty("height");
+  delete results.dataset.mobileView;
+}
+
+byId("mobileShowMap").addEventListener("click", () => setMobileResultView("map"));
+byId("mobileShowPlan").addEventListener("click", () => setMobileResultView("plan"));
+byId("mobileEditPlan").addEventListener("click", () => {
+  deactivateMobileResultLayout();
+  setMobilePlanningPanel(false);
+  openStep("planStep");
+});
+
+const mobileResultsDrag = byId("mobileResultsDrag");
+let resultDragStartY = 0;
+let resultDragStartHeight = 0;
+
+mobileResultsDrag.addEventListener("pointerdown", event => {
+  if (!mobileLayout.matches) return;
+  const results = byId("results");
+  resultDragStartY = event.clientY;
+  resultDragStartHeight = results.getBoundingClientRect().height;
+  results.classList.add("is-dragging");
+  results.style.height = `${resultDragStartHeight}px`;
+  mobileResultsDrag.setPointerCapture(event.pointerId);
+});
+
+mobileResultsDrag.addEventListener("pointermove", event => {
+  if (!mobileResultsDrag.hasPointerCapture(event.pointerId)) return;
+  const results = byId("results");
+  const workspaceHeight = document.querySelector(".workspace").getBoundingClientRect().height;
+  const nextHeight = Math.max(56, Math.min(workspaceHeight, resultDragStartHeight + resultDragStartY - event.clientY));
+  results.style.height = `${nextHeight}px`;
+});
+
+function finishResultDrag(event) {
+  if (!mobileResultsDrag.hasPointerCapture(event.pointerId)) return;
+  mobileResultsDrag.releasePointerCapture(event.pointerId);
+  const results = byId("results");
+  const workspaceHeight = document.querySelector(".workspace").getBoundingClientRect().height;
+  const ratio = results.getBoundingClientRect().height / workspaceHeight;
+  setMobileResultView(ratio < .25 ? "map" : ratio > .75 ? "plan" : "split");
+}
+
+mobileResultsDrag.addEventListener("pointerup", finishResultDrag);
+mobileResultsDrag.addEventListener("pointercancel", finishResultDrag);
+mobileResultsDrag.addEventListener("keydown", event => {
+  const current = byId("results").dataset.mobileView || "split";
+  if (event.key === "Home") setMobileResultView("map");
+  else if (event.key === "End") setMobileResultView("plan");
+  else if (event.key === "ArrowUp") setMobileResultView(current === "map" ? "split" : "plan");
+  else if (event.key === "ArrowDown") setMobileResultView(current === "plan" ? "split" : "map");
+  else return;
+  event.preventDefault();
+});
 
 byId("mobilePanelToggle").addEventListener("click", () => {
   const collapsed = document.querySelector(".sidebar").classList.contains("mobile-collapsed");
@@ -372,6 +452,7 @@ function setStart(lat, lon) {
   unlockStep("planStep");
   byId("planStepStatus").textContent = "Wpisz liczbę dni i czas trwania każdej trasy";
   openStep("planStep");
+  setMobilePlanningPanel(false);
 }
 
 function clearStart() {
@@ -390,6 +471,7 @@ function resetResult() {
   byId("progressPanel").hidden = true;
   byId("results").hidden = true;
   byId("results").classList.remove("has-plan");
+  deactivateMobileResultLayout();
 }
 
 function beginStartSelection() {
@@ -398,6 +480,14 @@ function beginStartSelection() {
   map.getContainer().classList.add("selecting-start");
   byId("startMapButton").classList.add("active");
   byId("startMapButton").textContent = "Kliknij teraz wybrane miejsce na mapie…";
+  setMobilePlanningPanel(true);
+  if (mobileLayout.matches) {
+    window.setTimeout(() => {
+      const networkId = byId("preparedNetwork").value;
+      if (networkId) fitPreparedBounds(networkId);
+      else previewData();
+    }, 230);
+  }
 }
 
 function stopStartSelection() {
@@ -620,8 +710,9 @@ byId("planButton").addEventListener("click", async () => {
     const data = await response.json();
     if (!response.ok) throw new Error(apiErrorMessage(data, "Nie udało się wyznaczyć trasy."));
     state.result = data;
+    activateMobileResultLayout();
     renderResult(data);
-    setMobilePlanningPanel(true);
+    setMobileResultView("split");
   } catch (error) { showProgressError(error.message); showError(error.message); }
   finally { setRouteBusy(false); }
 });

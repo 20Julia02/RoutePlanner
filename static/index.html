@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://tiles.openfreemap.org">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/styles.css?v=37">
+  <link rel="stylesheet" href="/static/styles.css?v=38">
 </head>
 <body>
   <div class="app-shell">
@@ -119,13 +119,20 @@
     <section class="workspace" aria-label="Mapa i wynik">
       <div id="map"></div>
       <section class="results" id="results" aria-live="polite" hidden>
+        <div class="mobile-results-toolbar" aria-label="Rozmiar widoku wyniku">
+          <button type="button" id="mobileShowMap" aria-label="Pokaż mapę na całym ekranie">Mapa</button>
+          <button type="button" class="mobile-results-drag" id="mobileResultsDrag" aria-label="Przeciągnij, aby zmienić wysokość planu">
+            <span aria-hidden="true"></span>
+          </button>
+          <button type="button" id="mobileShowPlan" aria-label="Pokaż plan na całym ekranie">Plan</button>
+        </div>
         <div class="progress-panel" id="progressPanel" hidden>
           <div class="progress-head"><div><p class="eyebrow" id="progressEyebrow">Wyznaczanie trasy</p><h2 id="progressTitle">Przygotowuję plan…</h2></div><strong id="progressPercent">0%</strong></div>
           <div class="progress-track"><span id="progressBar"></span></div>
           <p id="progressMessage">Rozpoczynam przetwarzanie.</p>
         </div>
         <div id="resultsContent" hidden>
-          <div class="results-head"><div><p class="eyebrow">Gotowy plan</p><h2>Plan zwiedzania</h2></div></div>
+          <div class="results-head"><div><p class="eyebrow">Gotowy plan</p><h2>Plan zwiedzania</h2></div><button type="button" class="mobile-edit-plan" id="mobileEditPlan">Zmień ustawienia</button></div>
           <div id="warnings"></div>
           <div id="dayCards" class="day-cards"></div>
         </div>
@@ -163,6 +170,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js" integrity="sha384-tXYNKOHx4T02jMP7YYCtBxPIv1B5gaA5mcVPBzqMp6d7VzWzxJgI2aWF/nJLrQdS" crossorigin="anonymous"></script>
-  <script type="module" src="/static/app.js?v=61"></script>
+  <script type="module" src="/static/app.js?v=63"></script>
 </body>
 </html>
