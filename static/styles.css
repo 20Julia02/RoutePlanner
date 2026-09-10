@@ -223,8 +223,8 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
 .editor-backdrop[hidden] { display: none; }
 
 @media (max-width: 900px) {
-  .app-shell { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); height: 100vh; height: 100dvh; overflow: hidden; }
-  .sidebar { height: 100vh; height: 100dvh; max-height: none; overflow-y: auto; border-right: 0; border-bottom: 1px solid var(--line); transition: height .2s ease; }
+  .app-shell { position: relative; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); height: 100vh; height: 100dvh; overflow: hidden; }
+  .sidebar { position: absolute; inset: 0 0 auto; width: 100%; height: 100vh; height: 100dvh; max-height: none; overflow-y: auto; border-right: 0; border-bottom: 1px solid var(--line); transition: height .2s ease; }
   .sidebar.mobile-collapsed { height: 64px; overflow: hidden; }
   .sidebar.mobile-collapsed .controls { display: none; }
   .app-shell.mobile-results-layout { grid-template-rows: minmax(0, 1fr); }
@@ -235,7 +235,7 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
   .mobile-panel-toggle-icon { font-size: 15px; transition: transform .2s ease; }
   .sidebar.mobile-collapsed .mobile-panel-toggle-icon { transform: rotate(180deg); }
   .controls { padding-top: 22px; padding-bottom: 28px; }
-  .workspace { height: auto; min-height: 0; }
+  .workspace { height: 100vh; height: 100dvh; min-height: 0; }
   .results { max-height: 47%; }
   .results.has-plan { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 46%; max-height: none; display: flex; flex-direction: column; overflow: hidden; border-width: 1px 0 0; border-radius: 18px 18px 0 0; transition: height .24s ease; }
   .results.has-plan[data-mobile-view="map"] { height: 56px; }

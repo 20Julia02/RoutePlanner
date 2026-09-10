@@ -6,7 +6,7 @@ import {
   map,
   mapFitOptions,
   state
-} from "./map-context.js?v=11";
+} from "./map-context.js?v=12";
 import {
   byId,
   escapeHtml,

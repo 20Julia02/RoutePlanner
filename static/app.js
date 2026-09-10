@@ -1,4 +1,4 @@
-import { map, mapFitOptions, state } from "./js/map-context.js?v=11";
+import { map, mapFitOptions, state } from "./js/map-context.js?v=12";
 import { clearResultMap, renderResult } from "./js/result-map.js?v=20";
 import { apiErrorMessage, byId } from "./js/ui-utils.js?v=5";
 import {
@@ -225,7 +225,8 @@ async function activateNetwork(selectionId) {
   clearStart();
   fitPreparedBounds(selectionId);
   const select = byId("preparedNetwork");
-  markDataReady(select.options[select.selectedIndex].text);
+  const selectedOption = select.options[select.selectedIndex];
+  markDataReady(selectedOption?.text || state.networkMetadata[selectionId]?.name || "Zestaw wybrany");
   updatePreparedInfo();
 }
 
@@ -483,6 +484,7 @@ function beginStartSelection() {
   setMobilePlanningPanel(true);
   if (mobileLayout.matches) {
     window.setTimeout(() => {
+      map.invalidateSize({ pan: false });
       const networkId = byId("preparedNetwork").value;
       if (networkId) fitPreparedBounds(networkId);
       else previewData();

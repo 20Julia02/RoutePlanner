@@ -33,11 +33,12 @@ const POLYGON_FILTER = [
 ];
 
 function applyMapPalette(vectorMap) {
+  if (!vectorMap?.getStyle) return;
   Object.entries(MAP_PALETTE).forEach(([layerId, color]) => {
     if (vectorMap.getLayer(layerId)) vectorMap.setPaintProperty(layerId, "fill-color", color);
   });
 
-  const styleLayers = vectorMap.getStyle().layers;
+  const styleLayers = vectorMap.getStyle()?.layers || [];
   const landcoverReference = styleLayers.find(layer => layer.id === "landcover_wood");
   const landuseReference = styleLayers.find(layer => layer.id === "landuse_residential");
 
@@ -110,9 +111,9 @@ function createMap() {
   const baseLayer = L.maplibreGL({
     style: "https://tiles.openfreemap.org/styles/positron"
   }).addTo(instance);
-  const vectorMap = baseLayer.getMaplibreMap();
-  if (vectorMap.isStyleLoaded()) applyMapPalette(vectorMap);
-  else vectorMap.once("load", () => applyMapPalette(vectorMap));
+  const vectorMap = baseLayer.getMaplibreMap?.();
+  if (vectorMap?.isStyleLoaded()) applyMapPalette(vectorMap);
+  else if (vectorMap) vectorMap.once("load", () => applyMapPalette(vectorMap));
   return instance;
 }
 
@@ -135,6 +136,9 @@ export function mapFitOptions() {
       paddingTopLeft: [20, 20],
       paddingBottomRight: [20, Math.min(maximumPadding, Math.round(resultHeight) + 20)]
     };
+  }
+  if (document.querySelector(".sidebar.mobile-collapsed")) {
+    return { paddingTopLeft: [20, 84], paddingBottomRight: [20, 20] };
   }
   return { padding: [20, 20] };
 }
