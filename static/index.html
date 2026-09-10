@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://tiles.openfreemap.org">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/styles.css?v=41">
+  <link rel="stylesheet" href="/static/styles.css?v=42">
 </head>
 <body>
   <div class="app-shell">
@@ -104,8 +104,8 @@
               <details class="advanced-settings compact">
                 <summary>Dostosuj swój plan</summary>
                 <div class="field-grid">
-                  <label>Atrakcji głównych / dzień<input id="mustSee" type="number" min="1" max="10" value="2"></label>
-                  <label>Promień dodatkowych<div class="input-unit"><input id="nearbyDistance" type="number" min="1" value="500"><span>m</span></div></label>
+                  <label>Liczba najważniejszych atrakcji na dzień<input id="mustSee" type="number" min="1" max="10" value="2"><small class="field-help">Ile wysoko ocenianych atrakcji zaplanować w pierwszej kolejności.</small></label>
+                  <label>Maksymalna odległość do dodatkowej atrakcji<div class="input-unit"><input id="nearbyDistance" type="number" min="1" value="500"><span>m</span></div><small class="field-help">Jeśli zostanie czas, plan może dodać atrakcje znajdujące się w tej odległości od trasy.</small></label>
                 </div>
               </details>
               <button id="planButton" class="primary-button" type="button"><span>Wyznacz plan</span><span aria-hidden="true">→</span></button>
