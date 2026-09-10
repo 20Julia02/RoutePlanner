@@ -208,7 +208,7 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
 .editor-close { width: 35px; height: 35px; border: 0; border-radius: 50%; background: #eef0ea; color: var(--ink); font-size: 23px; cursor: pointer; }
 .editor-intro { margin: 0; padding: 13px 22px 0; color: var(--muted); font-size: 12px; }
 .editor-toolbar { display: flex; align-items: center; gap: 16px; padding: 12px 22px; }
-.editor-toolbar input[type="search"] { margin: 0; flex: 1; }
+.editor-toolbar input[type="search"] { height: 46px; margin: 0; padding: 0 14px; flex: 1; border-radius: 10px; }
 .editor-all { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .editor-all input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); }
 .editor-table-wrap { margin: 0 22px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
@@ -234,7 +234,9 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
   .sidebar.mobile-collapsed { height: 64px; overflow: hidden; }
   .sidebar.mobile-collapsed .controls { display: none; }
   .app-shell.mobile-results-layout { grid-template-rows: minmax(0, 1fr); }
-  .app-shell.mobile-results-layout .sidebar { display: none; }
+  .app-shell.mobile-results-layout .sidebar { height: 64px; overflow: hidden; }
+  .app-shell.mobile-results-layout .sidebar .controls, .app-shell.mobile-results-layout .mobile-panel-toggle { display: none; }
+  .app-shell.mobile-results-layout .workspace { height: calc(100vh - 64px); height: calc(100dvh - 64px); margin-top: 64px; }
   .brand { height: 64px; padding: 0 20px; }
   .mobile-panel-toggle { margin-left: auto; min-width: 86px; height: 36px; padding: 0 10px; border: 1px solid #d5dcd3; border-radius: 18px; display: flex; align-items: center; justify-content: center; gap: 7px; background: #fff; color: var(--ink); font-size: 10px; font-weight: 800; cursor: pointer; }
   .mobile-panel-toggle:focus-visible { outline: 3px solid rgba(242,106,61,.2); border-color: var(--orange); }
