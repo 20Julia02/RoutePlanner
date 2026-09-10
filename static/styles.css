@@ -117,7 +117,12 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
 .leaflet-control-zoom a { color: var(--ink) !important; }
 .results { position: absolute; z-index: 6; left: 24px; right: 24px; bottom: 24px; max-height: 42%; overflow: auto; background: rgba(255,253,248,.97); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.65); border-radius: 16px; box-shadow: var(--shadow); }
 .results.has-plan { top: 24px; right: 24px; bottom: 24px; left: auto; width: 370px; max-height: none; margin: 0; }
-.mobile-results-toolbar, .mobile-result-actions, .mobile-map-legend { display: none; }
+.mobile-results-toolbar, .mobile-map-legend { display: none; }
+.mobile-result-actions { display: grid; gap: 6px; justify-items: stretch; width: 132px; }
+.mobile-result-actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 5px 10px; border: 1px solid #d5dcd3; border-radius: 18px; background: #fff; color: var(--ink); font-size: 10px; font-weight: 800; line-height: 1.2; text-align: center; cursor: pointer; }
+.mobile-result-actions .mobile-edit-plan { display: none; }
+.mobile-result-actions .mobile-edit-attractions { border-color: var(--ink); background: var(--ink); color: #fff; }
+.mobile-result-actions button:focus-visible { outline: 3px solid rgba(242,106,61,.25); }
 .guide-results { max-width: 940px; margin: 0 auto; }
 .guide-panel { min-height: 122px; padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
 .guide-copy h2 { margin: 0; font: 400 23px Georgia, serif; }
@@ -270,10 +275,8 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
   .mobile-results-toolbar .mobile-results-drag { display: grid; place-items: center; height: 44px; padding: 0; touch-action: none; cursor: grab; background: transparent; }
   .mobile-results-toolbar .mobile-results-drag:active { cursor: grabbing; }
   .mobile-results-drag > span { width: 52px; height: 5px; border-radius: 6px; background: #b9c1bb; }
-  .mobile-results-toolbar > button:focus-visible, .mobile-result-actions button:focus-visible { outline: 3px solid rgba(242,106,61,.25); }
-  .mobile-result-actions { display: grid; gap: 6px; justify-items: stretch; width: 132px; }
-  .mobile-result-actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 5px 10px; border: 1px solid #d5dcd3; border-radius: 18px; background: #fff; color: var(--ink); font-size: 10px; font-weight: 800; line-height: 1.2; text-align: center; cursor: pointer; }
-  .mobile-result-actions .mobile-edit-attractions { border-color: var(--ink); background: var(--ink); color: #fff; }
+  .mobile-results-toolbar > button:focus-visible { outline: 3px solid rgba(242,106,61,.25); }
+  .mobile-result-actions .mobile-edit-plan { display: inline-flex; }
   .guide-panel { align-items: flex-start; flex-direction: column; gap: 14px; }
 }
 
