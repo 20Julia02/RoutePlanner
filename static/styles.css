@@ -283,7 +283,7 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
   .mobile-results-toolbar > button:focus-visible { outline: 3px solid rgba(242,106,61,.25); }
   .mobile-result-actions .mobile-edit-plan { display: inline-flex; }
   .guide-panel { align-items: flex-start; flex-direction: column; gap: 14px; }
-  .editor-toolbar input[type="search"] { height: 92px; flex-basis: 92px; font-size: 16px; }
+  .editor-toolbar input[type="search"] { height: 64px; flex-basis: 64px; font-size: 16px; }
 }
 
 @media (max-width: 520px) {
