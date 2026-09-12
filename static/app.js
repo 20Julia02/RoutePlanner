@@ -404,7 +404,10 @@ function renderEditorRows() {
     duration.className = "duration-edit";
     duration.value = String(Math.round(Number(row.duration_seconds) / 60 * 100) / 100);
     duration.setAttribute("aria-label", `Czas zwiedzania: ${row.name}`);
-    durationCell.append(duration, document.createTextNode("min"));
+    const durationControl = document.createElement("div");
+    durationControl.className = "duration-control";
+    durationControl.append(duration, document.createTextNode("min"));
+    durationCell.appendChild(durationControl);
     tableRow.append(enabledCell, nameCell, weightCell, durationCell);
     body.appendChild(tableRow);
   });
