@@ -26,6 +26,8 @@ let localAdminEnabled = false;
 let editorRows = [];
 let editorReference = null;
 let geolocationRequestId = 0;
+let planningProgressTimer = null;
+let planningProgressValue = 0;
 
 function updateMustSeeRange() {
   const hours = Number(byId("maxHours").value);
@@ -866,7 +868,7 @@ byId("planButton").addEventListener("click", async () => {
     const body = payload();
     const serialized = JSON.stringify(body);
     setRouteBusy(true);
-    showProgress(10, "Serwer oblicza trasę w ramach bieżącego żądania.");
+    startPlanningProgress();
     const response = await fetch("/api/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -874,13 +876,72 @@ byId("planButton").addEventListener("click", async () => {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(apiErrorMessage(data, "Nie udało się wyznaczyć trasy."));
+    await finishPlanningProgress();
     state.result = data;
     activateMobileResultLayout();
     renderResult(data);
     setMobileResultView("split");
-  } catch (error) { showProgressError(error.message); showError(error.message); }
-  finally { setRouteBusy(false); }
+  } catch (error) {
+    stopPlanningProgress();
+    showProgressError(error.message);
+    showError(error.message);
+  }
+  finally {
+    stopPlanningProgress();
+    setRouteBusy(false);
+  }
 });
+
+const PLANNING_PROGRESS_STAGES = [
+  { limit: 28, step: 4, message: "Wczytuję dane potrzebne do ułożenia trasy." },
+  { limit: 52, step: 3, message: "Wybieram atrakcje na każdy dzień." },
+  { limit: 74, step: 2, message: "Skracam czas przejść między miejscami." },
+  { limit: 92, step: 1, message: "Dopracowuję przebieg trasy." }
+];
+
+function startPlanningProgress() {
+  stopPlanningProgress();
+  planningProgressValue = 6;
+  showProgress(planningProgressValue, "Rozpoczynam układanie planu.");
+  planningProgressTimer = window.setInterval(() => {
+    const stage = PLANNING_PROGRESS_STAGES.find(item => planningProgressValue < item.limit);
+    if (!stage) return;
+    planningProgressValue = Math.min(stage.limit, planningProgressValue + stage.step);
+    showProgress(planningProgressValue, stage.message);
+  }, 450);
+}
+
+function stopPlanningProgress() {
+  if (planningProgressTimer !== null) {
+    window.clearInterval(planningProgressTimer);
+    planningProgressTimer = null;
+  }
+}
+
+function progressDelay(milliseconds) {
+  return new Promise(resolve => window.setTimeout(resolve, milliseconds));
+}
+
+async function finishPlanningProgress() {
+  stopPlanningProgress();
+  const checkpoints = [
+    { value: 78, duration: 480, message: "Łączę gotowe odcinki trasy." },
+    { value: 92, duration: 240, message: "Przygotowuję plan do wyświetlenia." },
+    { value: 100, duration: 240, message: "Plan jest gotowy." }
+  ];
+  for (const checkpoint of checkpoints) {
+    if (checkpoint.value <= planningProgressValue) continue;
+    const start = planningProgressValue;
+    const steps = Math.max(1, Math.round(checkpoint.duration / 80));
+    for (let step = 1; step <= steps; step += 1) {
+      planningProgressValue = Math.round(
+        start + (checkpoint.value - start) * step / steps
+      );
+      showProgress(planningProgressValue, checkpoint.message);
+      await progressDelay(checkpoint.duration / steps);
+    }
+  }
+}
 
 function showProgress(value, message, eyebrow = "Wyznaczanie trasy", title = "Układam najlepsze trasy…") {
   byId("results").classList.remove("has-plan");

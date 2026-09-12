@@ -144,7 +144,7 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
 .progress-head h2 { margin: 0; font: 400 23px Georgia, serif; }
 .progress-head > strong { color: var(--orange); font: 400 23px Georgia, serif; }
 .progress-track { height: 8px; margin-top: 15px; border-radius: 9px; overflow: hidden; background: #e5e8e1; }
-.progress-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), #f4a648); transition: width .35s ease; }
+.progress-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), #f4a648); transition: width .45s linear; }
 .progress-panel > p { margin: 9px 0 0; color: var(--muted); font-size: 11px; }
 .results-empty { height: 92px; display: flex; align-items: center; justify-content: center; flex-direction: column; }
 .results-empty > span { color: var(--orange); font-size: 18px; }
@@ -283,6 +283,7 @@ input:focus, select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px r
   .mobile-results-toolbar > button:focus-visible { outline: 3px solid rgba(242,106,61,.25); }
   .mobile-result-actions .mobile-edit-plan { display: inline-flex; }
   .guide-panel { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .editor-toolbar input[type="search"] { height: 92px; flex-basis: 92px; font-size: 16px; }
 }
 
 @media (max-width: 520px) {
