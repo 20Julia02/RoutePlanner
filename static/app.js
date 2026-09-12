@@ -14,10 +14,47 @@ let selectingStart = false;
 const mobileLayout = window.matchMedia("(max-width: 900px)");
 const PUBLIC_PREFIX = "public:";
 const START_SNAP_DISTANCE_METERS = 5000;
+const NEARBY_DISTANCE_LEVELS = [100, 250, 500, 1000, 2000];
+const NEARBY_DISTANCE_LABELS = [
+  "Bardzo blisko trasy",
+  "Blisko trasy",
+  "Zrównoważona trasa",
+  "Możliwe dalsze przystanki",
+  "Zbaczaj po ciekawe miejsca"
+];
 let localAdminEnabled = false;
 let editorRows = [];
 let editorReference = null;
 let geolocationRequestId = 0;
+
+function updateMustSeeRange() {
+  const hours = Number(byId("maxHours").value);
+  if (!Number.isFinite(hours) || hours <= 0) return;
+  const slider = byId("mustSee");
+  const maximum = Math.floor(hours) + 2;
+  slider.max = String(maximum);
+  if (Number(slider.value) > maximum) slider.value = String(maximum);
+}
+
+byId("maxHours").addEventListener("input", updateMustSeeRange);
+updateMustSeeRange();
+
+function nearbyDistanceValue() {
+  const level = Math.round(Number(byId("nearbyDistance").value));
+  return NEARBY_DISTANCE_LEVELS[level] ?? NEARBY_DISTANCE_LEVELS[2];
+}
+
+function updateNearbyDistanceLabel() {
+  const slider = byId("nearbyDistance");
+  const level = Math.round(Number(slider.value));
+  slider.setAttribute(
+    "aria-valuetext",
+    NEARBY_DISTANCE_LABELS[level] ?? NEARBY_DISTANCE_LABELS[2]
+  );
+}
+
+byId("nearbyDistance").addEventListener("input", updateNearbyDistanceLabel);
+updateNearbyDistanceLabel();
 
 
 function networkReference(value) {
@@ -741,7 +778,7 @@ function numberValue(id) { return Number(byId(id).value); }
 function commonOptions() {
   return {
     days: numberValue("days"), max_hours_per_day: numberValue("maxHours"),
-    must_see_per_day: numberValue("mustSee"), nearby_distance_m: numberValue("nearbyDistance"),
+    must_see_per_day: numberValue("mustSee"), nearby_distance_m: nearbyDistanceValue(),
     topology_tolerance_m: numberValue("topologyTolerance"), snap_distance_m: numberValue("snapDistance"),
     start_snap_distance_m: START_SNAP_DISTANCE_METERS, walking_speed_mps: numberValue("walkingSpeed")
   };

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://tiles.openfreemap.org">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/styles.css?v=48">
+  <link rel="stylesheet" href="/static/styles.css?v=49">
 </head>
 <body>
   <div class="app-shell">
@@ -106,8 +106,22 @@
               <details class="advanced-settings compact">
                 <summary>Dostosuj swój plan</summary>
                 <div class="field-grid">
-                  <label>Liczba najważniejszych atrakcji na dzień<input id="mustSee" type="number" min="1" max="10" value="2"><small class="field-help">Ile wysoko ocenianych atrakcji zaplanować w pierwszej kolejności.</small></label>
-                  <label>Maksymalna odległość do dodatkowej atrakcji<div class="input-unit"><input id="nearbyDistance" type="number" min="1" value="500"><span>m</span></div><small class="field-help">Jeśli zostanie czas, zostaną dodane kolejne atrakcje znajdujące się w tej odległości od trasy.</small></label>
+                  <div class="plan-preference span-2">
+                    <label for="mustSee">Styl zwiedzania</label>
+                    <div class="preference-scale" aria-hidden="true">
+                      <span>Odkrywaj też mniej znane miejsca</span>
+                      <span>Skup się na najważniejszych atrakcjach</span>
+                    </div>
+                    <input id="mustSee" type="range" min="1" max="10" step="1" value="2" aria-label="Styl zwiedzania: od mniej znanych miejsc do najważniejszych atrakcji">
+                  </div>
+                  <div class="plan-preference span-2">
+                    <label for="nearbyDistance">Elastyczność trasy</label>
+                    <div class="preference-scale" aria-hidden="true">
+                      <span>Trzymaj się blisko trasy</span>
+                      <span>Zbaczaj po ciekawe miejsca</span>
+                    </div>
+                    <input id="nearbyDistance" type="range" min="0" max="4" step="1" value="2" aria-valuetext="Zrównoważona trasa">
+                  </div>
                 </div>
               </details>
               <button id="planButton" class="primary-button" type="button"><span>Wyznacz plan</span><span aria-hidden="true">→</span></button>
@@ -174,6 +188,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js" integrity="sha384-tXYNKOHx4T02jMP7YYCtBxPIv1B5gaA5mcVPBzqMp6d7VzWzxJgI2aWF/nJLrQdS" crossorigin="anonymous"></script>
-  <script type="module" src="/static/app.js?v=70"></script>
+  <script type="module" src="/static/app.js?v=72"></script>
 </body>
 </html>

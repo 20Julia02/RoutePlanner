@@ -69,8 +69,12 @@ class _RouteOptions:
             raise PlanningError("Promień dodatkowych atrakcji nie może przekraczać 50 km.")
         if start_snap_distance > 100_000:
             raise PlanningError("Promień dowiązania startu nie może przekraczać 100 km.")
-        if must_see_per_day > 10:
-            raise PlanningError("Liczba atrakcji must-see na dzień nie może przekraczać 10.")
+        maximum_must_see = int(max_hours) + 2
+        if must_see_per_day > maximum_must_see:
+            raise PlanningError(
+                "Liczba najważniejszych atrakcji na dzień nie może przekraczać "
+                f"{maximum_must_see} dla wybranego czasu zwiedzania."
+            )
         if days * must_see_per_day > MAX_SELECTED_ATTRACTIONS:
             raise PlanningError(
                 f"Plan może obejmować najwyżej {MAX_SELECTED_ATTRACTIONS} "
