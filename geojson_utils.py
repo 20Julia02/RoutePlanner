@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import math
+from itertools import pairwise
 from typing import Any, Dict, Iterable, Iterator, Mapping, Optional, Sequence, Tuple
 
 from planning_models import Coordinate, GeoJSON, PlanningError, ProgressCallback
-
 
 EARTH_RADIUS_M = 6_371_008.8
 
@@ -55,9 +55,7 @@ def feature_collection(
     if not isinstance(features, list) or not features:
         raise PlanningError(f"{label} nie zawierają żadnych obiektów.")
     if maximum_features is not None and len(features) > maximum_features:
-        raise PlanningError(
-            f"{label} przekraczają limit {maximum_features} obiektów."
-        )
+        raise PlanningError(f"{label} przekraczają limit {maximum_features} obiektów.")
     if any(not isinstance(feature, dict) for feature in features):
         raise PlanningError(f"{label} zawierają obiekt w nieprawidłowym formacie.")
     return features
@@ -156,7 +154,7 @@ def haversine_distance(first: Sequence[float], second: Sequence[float]) -> float
 def line_length(coordinates: Sequence[Sequence[float]]) -> float:
     """Calculate the geodesic length of a line in metres."""
 
-    return sum(haversine_distance(first, second) for first, second in zip(coordinates, coordinates[1:]))
+    return sum(haversine_distance(first, second) for first, second in pairwise(coordinates))
 
 
 class NodeIndex:

@@ -4,25 +4,34 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from shapely.geometry import Point
 from shapely.ops import unary_union
 
-
-MAX_SELECTED_ATTRACTIONS = 50
-MAX_NEARBY_CANDIDATES_PER_DAY = 25
-
-from geojson_utils import NodeIndex, number, positive_number, report_progress, to_lonlat, to_xy
+from geojson_utils import (
+    NodeIndex,
+    number,
+    positive_number,
+    report_progress,
+    to_lonlat,
+    to_xy,
+)
 from models import Graph, RouteResult
 from network_preparation import (
     attraction_duration_seconds,
     prepare_network,
     update_prepared_attractions,
 )
+from old_algorithm.optimizer_v1 import RouteOptimizer as LegacyRouteOptimizer
+from old_algorithm.shortest_path_alg_v1 import PathAlgorithm as LegacyPathAlgorithm
 from optimizer import RouteOptimizer
 from planning_models import GeoJSON, PlanningError, PreparedNetwork, ProgressCallback
 from shortest_path_alg import PathAlgorithm
+
+MAX_SELECTED_ATTRACTIONS = 50
+MAX_NEARBY_CANDIDATES_PER_DAY = 25
 
 
 @dataclass(frozen=True)
@@ -36,8 +45,10 @@ class _RouteOptions:
     must_see_per_day: int
 
     @classmethod
-    def from_payload(cls, payload: Mapping[str, Any]) -> "_RouteOptions":
-        options = payload.get("options") or {}
+    def from_payload(cls, payload: Mapping[str, Any], *, legacy: bool = False) -> "_RouteOptions":
+        options = payload.get("options")
+        if options is None:
+            options = {}
         if not isinstance(options, Mapping):
             raise PlanningError("Opcje planowania muszą być obiektem JSON.")
         days_value = positive_number(options.get("days", 1), "liczba dni")
@@ -46,9 +57,7 @@ class _RouteOptions:
         days = int(days_value)
         if days > 14:
             raise PlanningError("Liczba dni nie może być większa niż 14.")
-        max_hours = positive_number(
-            options.get("max_hours_per_day", 8), "maksymalny czas dzienny"
-        )
+        max_hours = positive_number(options.get("max_hours_per_day", 8), "maksymalny czas dzienny")
         if max_hours > 24:
             raise PlanningError("Maksymalny czas dzienny nie może przekraczać 24 godzin.")
         nearby_distance = positive_number(
@@ -70,12 +79,12 @@ class _RouteOptions:
         if start_snap_distance > 100_000:
             raise PlanningError("Promień dowiązania startu nie może przekraczać 100 km.")
         maximum_must_see = int(max_hours) + 2
-        if must_see_per_day > maximum_must_see:
+        if not legacy and must_see_per_day > maximum_must_see:
             raise PlanningError(
                 "Liczba najważniejszych atrakcji na dzień nie może przekraczać "
                 f"{maximum_must_see} dla wybranego czasu zwiedzania."
             )
-        if days * must_see_per_day > MAX_SELECTED_ATTRACTIONS:
+        if not legacy and days * must_see_per_day > MAX_SELECTED_ATTRACTIONS:
             raise PlanningError(
                 f"Plan może obejmować najwyżej {MAX_SELECTED_ATTRACTIONS} "
                 "atrakcji must-see łącznie."
@@ -135,11 +144,7 @@ def _nearby_attractions(
 ) -> List[int]:
     """Find unused attractions within a metric buffer of the current route."""
 
-    lines = [
-        network.edges[edge_id].line_xy
-        for edge_id in route_edges
-        if edge_id in network.edges
-    ]
+    lines = [network.edges[edge_id].line_xy for edge_id in route_edges if edge_id in network.edges]
     if not lines:
         return []
     route = unary_union(lines)
@@ -154,9 +159,9 @@ def _route_features(network: PreparedNetwork, result: RouteResult, day: int) -> 
     """Convert an ordered graph path to display-ready GeoJSON lines."""
 
     features = []
-    node_pairs = zip(result.nodes_path, result.nodes_path[1:])
+    node_pairs = pairwise(result.nodes_path)
     for sequence, ((source_id, target_id), edge_id) in enumerate(
-        zip(node_pairs, result.edges_path), start=1
+        zip(node_pairs, result.edges_path, strict=True), start=1
     ):
         geometry = network.edges[edge_id]
         coordinates = [list(point) for point in geometry.coordinates]
@@ -195,9 +200,7 @@ def _attraction_features(
     position = 1
     for vertex_id in vertex_ids:
         vertex = network.graph.nodes[vertex_id]
-        vertex_coordinates = to_lonlat(
-            (vertex.x, vertex.y), network.reference_latitude
-        )
+        vertex_coordinates = to_lonlat((vertex.x, vertex.y), network.reference_latitude)
         for source in network.attractions_by_vertex.get(vertex_id, []):
             source_properties = source.get("properties") or {}
             if not isinstance(source_properties, Mapping):
@@ -205,14 +208,10 @@ def _attraction_features(
             properties = dict(source_properties)
             if not properties.get("_enabled", True):
                 continue
-            name = str(
-                properties.get(network.name_field) or f"Atrakcja {position}"
-            )[:300]
+            name = str(properties.get(network.name_field) or f"Atrakcja {position}")[:300]
             image = properties.get(network.image_field) if network.image_field else None
             description = (
-                properties.get(network.description_field)
-                if network.description_field
-                else None
+                properties.get(network.description_field) if network.description_field else None
             )
             safe_properties = {
                 "day": day,
@@ -239,9 +238,7 @@ def _attraction_features(
                     "name": name,
                     "vertex_id": vertex_id,
                     "coordinates": feature["geometry"]["coordinates"][:2],
-                    "duration_seconds": round(
-                        attraction_duration_seconds(network, properties), 2
-                    ),
+                    "duration_seconds": round(attraction_duration_seconds(network, properties), 2),
                 }
             )
             position += 1
@@ -284,6 +281,126 @@ def _empty_day(day_number: int) -> Dict[str, Any]:
     }
 
 
+def _format_day(network: PreparedNetwork, result: RouteResult, day_number: int) -> Dict[str, Any]:
+    """Present routes from either optimizer in the same API format."""
+
+    route = _route_features(network, result, day_number)
+    attractions, itinerary = _attraction_features(network, result.attractions, day_number)
+    return {
+        "day": day_number,
+        "total_time_seconds": round(result.total_time, 2),
+        "walking_time_seconds": round(
+            result.total_time - network.graph.get_attr_time(result.attractions), 2
+        ),
+        "total_weight": network.graph.get_attr_weight(result.attractions),
+        "route": route,
+        "attractions": attractions,
+        "itinerary": itinerary,
+    }
+
+
+def _plan_response(
+    network: PreparedNetwork,
+    payload: Mapping[str, Any],
+    result_days: List[Dict[str, Any]],
+    warnings: List[str],
+    start_id: int,
+    start_distance: float,
+    algorithm: str,
+) -> GeoJSON:
+    routes = [feature for day in result_days for feature in day["route"]["features"]]
+    attractions = [feature for day in result_days for feature in day["attractions"]["features"]]
+    if not attractions:
+        raise PlanningError(
+            "Nie udało się wybrać żadnej atrakcji. "
+            "Sprawdź spójność sieci i ustawiony czas zwiedzania."
+        )
+    start = payload.get("start") or {}
+    return {
+        "days": result_days,
+        "routes": {"type": "FeatureCollection", "features": routes},
+        "selected_attractions": {
+            "type": "FeatureCollection",
+            "features": attractions,
+        },
+        "start": {
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [float(start["lon"]), float(start["lat"])],
+            },
+            "properties": {
+                "snapped_vertex_id": start_id,
+                "snap_distance_m": round(start_distance, 2),
+            },
+        },
+        "warnings": warnings,
+        "meta": {
+            "algorithm": algorithm,
+            "nodes": len(network.graph.nodes),
+            "edges": len(network.edges),
+            "attraction_vertices": len(network.graph.attractions),
+            "cost_matrix_entries": len(network.cost_matrix),
+            "crs": "EPSG:4326",
+        },
+    }
+
+
+def _plan_legacy_network(
+    network: PreparedNetwork,
+    payload: Mapping[str, Any],
+    options: _RouteOptions,
+    start_id: int,
+    start_distance: float,
+    progress: ProgressCallback,
+) -> GeoJSON:
+    """Run the original random-search/annealing strategy on prepared data."""
+
+    # The legacy strategy removes attractions after each day. Never mutate the
+    # shared graph cached by the public network catalog.
+    graph = network.graph.copy_for_attraction_edits()
+    reachable = _reachable_node_ids(graph, start_id)
+    unreachable = set(graph.attractions) - reachable
+    for attraction_id in unreachable:
+        graph.attractions.pop(attraction_id, None)
+    warnings = list(network.warnings)
+    if unreachable:
+        warnings.append(
+            f"Pominięto atrakcje nieosiągalne z punktu startowego ({len(unreachable)})."
+        )
+    algorithm = LegacyPathAlgorithm(graph)
+    result_days = []
+    # The ArcGIS script tried one million draws per day. A bounded search keeps
+    # the HTTP request usable while retaining its ranking and annealing method.
+    for day_number in range(1, options.days + 1):
+        report_progress(
+            progress,
+            25 + round(65 * (day_number - 1) / options.days),
+            f"Szukam trasy starym algorytmem dla dnia {day_number}/{options.days}.",
+        )
+        if not graph.attractions:
+            result_days.append(_empty_day(day_number))
+            continue
+        optimizer = LegacyRouteOptimizer(
+            graph, network.cost_matrix, algorithm, start_id, options.max_hours
+        )
+        try:
+            result = optimizer.find_best_route(choices_nmb=10_000)
+        except ValueError:
+            warnings.append(f"Dzień {day_number}: stary algorytm nie znalazł trasy.")
+            result_days.append(_empty_day(day_number))
+            continue
+        if result.total_time > optimizer.duration_sec:
+            warnings.append(f"Dzień {day_number}: trasa przekracza ustawiony limit czasu.")
+        result_days.append(_format_day(network, result, day_number))
+        for attraction_id in result.attractions:
+            graph.attractions.pop(attraction_id, None)
+    report_progress(progress, 94, "Przygotowuję wynik do wyświetlenia.")
+    return _plan_response(
+        network, payload, result_days, warnings, start_id, start_distance, "legacy"
+    )
+
+
 def _recover_route(
     optimizer: RouteOptimizer, attraction_ids: Sequence[int]
 ) -> tuple[List[int], Optional[RouteResult], List[int]]:
@@ -316,9 +433,7 @@ def _add_nearby_attractions(
     """Insert nearby places and cheaply take them from future daily regions."""
 
     excluded = visited | set(attraction_ids)
-    candidates = _nearby_attractions(
-        network, route_result.edges_path, excluded, maximum_distance
-    )
+    candidates = _nearby_attractions(network, route_result.edges_path, excluded, maximum_distance)
 
     def future_day(candidate: int) -> Optional[int]:
         return next(
@@ -374,9 +489,10 @@ def plan_route(payload: Mapping[str, Any], progress: ProgressCallback = None) ->
 
     preparation_progress = None
     if progress:
-        preparation_progress = lambda value, message: progress(
-            min(7, round(value * 0.07)), message
-        )
+
+        def preparation_progress(value: int, message: str) -> None:
+            progress(min(7, round(value * 0.07)), message)
+
     network = prepare_network(payload, progress=preparation_progress)
     return plan_prepared_network(network, payload, progress=progress)
 
@@ -388,7 +504,15 @@ def plan_prepared_network(
 ) -> GeoJSON:
     """Calculate a multi-day plan using a reusable prepared network."""
 
+    algorithm = payload.get("algorithm", "current")
+    if algorithm not in ("current", "legacy"):
+        raise PlanningError("Nieznany algorytm planowania.")
+
     edits = payload.get("attraction_edits")
+    if edits is not None and (
+        not isinstance(edits, list) or any(not isinstance(edit, Mapping) for edit in edits)
+    ):
+        raise PlanningError("Nieprawidłowy format zmian atrakcji.")
     if edits:
         # Cached public networks are shared by requests, so customize a private
         # copy of only the mutable data used by the optimizer.
@@ -398,15 +522,15 @@ def plan_prepared_network(
         customized.warnings = list(network.warnings)
         update_prepared_attractions(customized, edits)
         network = customized
-    elif edits is not None and not isinstance(edits, list):
-        raise PlanningError("Nieprawidłowy format zmian atrakcji.")
 
     report_progress(progress, 8, "Wczytuję przygotowany graf i macierz kosztów.")
-    options = _RouteOptions.from_payload(payload)
+    options = _RouteOptions.from_payload(payload, legacy=algorithm == "legacy")
     start_id, start_distance = _nearest_start(
         network, payload.get("start") or {}, options.start_snap_distance
     )
     report_progress(progress, 18, "Dowiązuję punkt startowy do sieci.")
+    if algorithm == "legacy":
+        return _plan_legacy_network(network, payload, options, start_id, start_distance, progress)
     optimizer = RouteOptimizer(
         network.graph,
         network.cost_matrix,
@@ -422,9 +546,7 @@ def plan_prepared_network(
         multiplier=options.must_see_per_day,
         candidate_ids=reachable_nodes,
     )
-    day_routes = optimizer.split_attractions_between_days_spatially(
-        must_see, options.days
-    )
+    day_routes = optimizer.split_attractions_between_days_spatially(must_see, options.days)
     day_routes = optimizer.repair_day_assignments(day_routes)
     report_progress(progress, 30, "Skracam łączny czas przemieszczania między atrakcjami.")
 
@@ -444,13 +566,11 @@ def plan_prepared_network(
         )
 
     result_days = []
-    combined_routes: List[GeoJSON] = []
-    combined_attractions: List[GeoJSON] = []
     for day_index, initial_route in enumerate(day_routes):
         day_number = day_index + 1
         report_progress(
             progress,
-            35 + round(55 * day_index / max(options.days, 1)),
+            35 + round(55 * day_index / options.days),
             f"Wyznaczam i uzupełniam trasę dla dnia {day_number}/{options.days}.",
         )
         if not initial_route:
@@ -459,9 +579,7 @@ def plan_prepared_network(
             continue
 
         current_route = [
-            attraction_id
-            for attraction_id in initial_route
-            if attraction_id not in visited
+            attraction_id for attraction_id in initial_route if attraction_id not in visited
         ]
         if not current_route:
             warnings.append(f"Dzień {day_number} nie ma przypisanych atrakcji.")
@@ -469,9 +587,7 @@ def plan_prepared_network(
             continue
         current_result = optimizer.build_exact_route(current_route)
         if current_result is None:
-            current_route, current_result, skipped = _recover_route(
-                optimizer, current_route
-            )
+            current_route, current_result, skipped = _recover_route(optimizer, current_route)
             if skipped:
                 warnings.append(
                     f"Dzień {day_number}: pominięto nieosiągalne atrakcje "
@@ -479,9 +595,7 @@ def plan_prepared_network(
                     "ale zachowano pozostałą trasę dnia."
                 )
             if current_result is None:
-                warnings.append(
-                    f"Nie znaleziono przejezdnej trasy dla dnia {day_number}."
-                )
+                warnings.append(f"Nie znaleziono przejezdnej trasy dla dnia {day_number}.")
                 result_days.append(_empty_day(day_number))
                 continue
 
@@ -504,60 +618,9 @@ def plan_prepared_network(
         day_routes[day_index] = list(current_route)
         visited.update(current_route)
 
-        route_collection = _route_features(network, current_result, day_number)
-        attraction_collection, itinerary = _attraction_features(
-            network, current_route, day_number
-        )
-        combined_routes.extend(route_collection["features"])
-        combined_attractions.extend(attraction_collection["features"])
-        result_days.append(
-            {
-                "day": day_number,
-                "total_time_seconds": round(current_result.total_time, 2),
-                "walking_time_seconds": round(
-                    current_result.total_time
-                    - network.graph.get_attr_time(current_route),
-                    2,
-                ),
-                "total_weight": network.graph.get_attr_weight(current_route),
-                "route": route_collection,
-                "attractions": attraction_collection,
-                "itinerary": itinerary,
-            }
-        )
-
-    if not combined_routes:
-        raise PlanningError(
-            "Nie udało się wyznaczyć żadnej trasy. "
-            "Sprawdź spójność sieci i parametry dowiązania."
-        )
+        result_days.append(_format_day(network, current_result, day_number))
 
     report_progress(progress, 94, "Przygotowuję geometrie i plan do wyświetlenia.")
-    start = payload.get("start") or {}
-    return {
-        "days": result_days,
-        "routes": {"type": "FeatureCollection", "features": combined_routes},
-        "selected_attractions": {
-            "type": "FeatureCollection",
-            "features": combined_attractions,
-        },
-        "start": {
-            "type": "Feature",
-            "geometry": {
-                "type": "Point",
-                "coordinates": [float(start["lon"]), float(start["lat"])],
-            },
-            "properties": {
-                "snapped_vertex_id": start_id,
-                "snap_distance_m": round(start_distance, 2),
-            },
-        },
-        "warnings": warnings,
-        "meta": {
-            "nodes": len(network.graph.nodes),
-            "edges": len(network.edges),
-            "attraction_vertices": len(network.graph.attractions),
-            "cost_matrix_entries": len(network.cost_matrix),
-            "crs": "EPSG:4326",
-        },
-    }
+    return _plan_response(
+        network, payload, result_days, warnings, start_id, start_distance, "current"
+    )

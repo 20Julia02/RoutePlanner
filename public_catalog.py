@@ -7,18 +7,35 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping, cast
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from network_preparation import list_prepared_attractions
 from prepared_store import PreparedNetworkStore
-
 
 _NETWORK_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 _SHA256 = re.compile(r"^[a-fA-F0-9]{64}$")
 _MAX_MANIFEST_BYTES = 1_000_000
 _MAX_MANIFEST_ENTRIES = 100
+
+
+class _AllowlistedRedirectHandler(HTTPRedirectHandler):
+    """Validate a redirect destination before urllib connects to it."""
+
+    def __init__(self, validate_url: Callable[[str], None]):
+        self._validate_url = validate_url
+
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        self._validate_url(new_url)
+        return super().redirect_request(
+            request,
+            file_pointer,
+            code,
+            message,
+            headers,
+            new_url,
+        )
 
 
 @dataclass(frozen=True)
@@ -45,9 +62,7 @@ class PublicNetworkCatalog:
         self._local = PreparedNetworkStore(local_root, read_only=True, cache_size=1)
         self._manifest_url = (manifest_url or "").strip() or None
         self._manifest_sha256 = (manifest_sha256 or "").strip().lower() or None
-        self._allowed_hosts = tuple(
-            host.strip().lower() for host in allowed_hosts if host.strip()
-        )
+        self._allowed_hosts = tuple(host.strip().lower() for host in allowed_hosts if host.strip())
         self._maximum_document_bytes = maximum_document_bytes
         self._manifest: dict[str, _RemoteNetwork] | None = None
         self._cache: OrderedDict[str, Any] = OrderedDict()
@@ -77,7 +92,7 @@ class PublicNetworkCatalog:
         if not self._manifest_url:
             return self._local.load(network_id)
         if not _NETWORK_ID.fullmatch(network_id):
-            raise ValueError("Nieprawidłowy identyfikator sieci.")
+            raise FileNotFoundError(f"Nie znaleziono sieci: {network_id}")
 
         with self._lock:
             cached = self._cache.get(network_id)
@@ -99,7 +114,7 @@ class PublicNetworkCatalog:
                 raise ValueError("Publiczny plik sieci nie jest poprawnym JSON-em.") from exc
             if not isinstance(payload, Mapping):
                 raise ValueError("Publiczny plik sieci ma nieprawidłowy format.")
-            network = self._local._deserialize(dict(payload))
+            network = self._local.deserialize(dict(payload))
             self._cache[network_id] = network
             self._cache.move_to_end(network_id)
             while len(self._cache) > 1:
@@ -112,7 +127,7 @@ class PublicNetworkCatalog:
         if not self._manifest_url:
             return self._local.list_attractions(network_id)
         if not _NETWORK_ID.fullmatch(network_id):
-            raise ValueError("Nieprawidłowy identyfikator sieci.")
+            raise FileNotFoundError(f"Nie znaleziono sieci: {network_id}")
 
         with self._lock:
             cached = self._attractions_cache.get(network_id)
@@ -168,12 +183,12 @@ class PublicNetworkCatalog:
         with self._lock:
             if self._manifest is not None:
                 return self._manifest
-            assert self._manifest_url is not None
-            assert self._manifest_sha256 is not None
+            manifest_url = cast(str, self._manifest_url)
+            manifest_sha256 = cast(str, self._manifest_sha256)
             content = self._download(
-                self._manifest_url,
+                manifest_url,
                 maximum_bytes=_MAX_MANIFEST_BYTES,
-                expected_sha256=self._manifest_sha256,
+                expected_sha256=manifest_sha256,
             )
             try:
                 document = json.loads(content)
@@ -235,7 +250,9 @@ class PublicNetworkCatalog:
         if (
             isinstance(bounds, list)
             and len(bounds) == 4
-            and all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in bounds)
+            and all(
+                isinstance(value, (int, float)) and not isinstance(value, bool) for value in bounds
+            )
         ):
             west, south, east, north = (float(value) for value in bounds)
             if -180 <= west <= east <= 180 and -90 <= south <= north <= 90:
@@ -263,12 +280,17 @@ class PublicNetworkCatalog:
                 for allowed in self._allowed_hosts
             )
         ):
-            raise ValueError("Adres publicznych danych nie znajduje się na dozwolonym hoście HTTPS.")
+            raise ValueError(
+                "Adres publicznych danych nie znajduje się na dozwolonym hoście HTTPS."
+            )
 
     def _download(self, url: str, *, maximum_bytes: int, expected_sha256: str) -> bytes:
         self._validate_url(url)
-        request = Request(url, headers={"User-Agent": "WanderPlan/1.0"})
-        with urlopen(request, timeout=30) as response:  # noqa: S310 - URL is allowlisted above.
+        request = Request(  # noqa: S310 - URL is allowlisted above.
+            url, headers={"User-Agent": "PlanYourRoute/1.0"}
+        )
+        opener = build_opener(_AllowlistedRedirectHandler(self._validate_url))
+        with opener.open(request, timeout=30) as response:  # noqa: S310 - URL is allowlisted.
             final_url = response.geturl()
             self._validate_url(final_url)
             declared_length = response.headers.get("Content-Length")

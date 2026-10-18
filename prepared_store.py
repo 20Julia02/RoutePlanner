@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
-import math
 import re
+import threading
 from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 from uuid import uuid4
+
+from shapely.geometry import LineString
 
 from geojson_utils import to_xy
 from models import CostMatrix, Edge, Graph, Node
@@ -19,8 +21,6 @@ from network_preparation import (
     update_prepared_attractions,
 )
 from planning_models import EdgeGeometry, PlanningError, PreparedNetwork
-from shapely.geometry import LineString
-
 
 NETWORK_ID = re.compile(r"^[0-9a-f]{32}$")
 
@@ -33,16 +33,18 @@ class PreparedNetworkStore:
         self.read_only = bool(read_only)
         self.cache_size = max(1, int(cache_size))
         self._cache: OrderedDict[str, PreparedNetwork] = OrderedDict()
+        self._cache_lock = threading.RLock()
 
     def _ensure_writable(self) -> None:
         if self.read_only:
             raise PlanningError("Publiczny katalog zestawów jest tylko do odczytu.")
 
     def _remember(self, network_id: str, network: PreparedNetwork) -> None:
-        self._cache.pop(network_id, None)
-        self._cache[network_id] = network
-        while len(self._cache) > self.cache_size:
-            self._cache.popitem(last=False)
+        with self._cache_lock:
+            self._cache.pop(network_id, None)
+            self._cache[network_id] = network
+            while len(self._cache) > self.cache_size:
+                self._cache.popitem(last=False)
 
     def _path(self, network_id: str) -> Path:
         return self.root / f"{self._validated_id(network_id)}.json"
@@ -57,7 +59,7 @@ class PreparedNetworkStore:
     def _validated_id(network_id: str) -> str:
         network_id = str(network_id)
         if not NETWORK_ID.fullmatch(str(network_id)):
-            raise PlanningError("Nieprawidłowy identyfikator przygotowanego zestawu.")
+            raise FileNotFoundError("Nie znaleziono przygotowanego zestawu danych.")
         return network_id
 
     @staticmethod
@@ -153,12 +155,8 @@ class PreparedNetworkStore:
                     # Jednorazowa migracja starszego zestawu. Następne
                     # listowania czytają już tylko mały plik *.meta.json.
                     with path.open("r", encoding="utf-8") as stream:
-                        metadata = (json.load(stream).get("metadata") or {})
-                    if (
-                        not self.read_only
-                        and metadata.get("id")
-                        and metadata.get("name")
-                    ):
+                        metadata = json.load(stream).get("metadata") or {}
+                    if not self.read_only and metadata.get("id") and metadata.get("name"):
                         self._write_metadata(metadata)
                 if metadata.get("id") and metadata.get("name"):
                     result.append(metadata)
@@ -166,31 +164,12 @@ class PreparedNetworkStore:
                 continue
         return sorted(result, key=lambda item: item.get("created_at", ""), reverse=True)
 
-    def replace(self, network_id: str, network: PreparedNetwork) -> Dict[str, Any]:
-        """Replace a saved network while preserving its identity and name."""
-
-        self._ensure_writable()
-        target = self._path(network_id)
-        if not target.exists():
-            raise PlanningError("Nie znaleziono przygotowanego zestawu danych.")
-        with target.open("r", encoding="utf-8") as stream:
-            metadata = (json.load(stream).get("metadata") or {})
-        metadata.update(self._summary(network))
-        metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-        document = self._serialize(network)
-        document["metadata"] = metadata
-        self._write_json(target, document)
-        self._write_metadata(metadata)
-        self._write_attractions(network_id, list_prepared_attractions(network))
-        self._remember(network_id, network)
-        return metadata
-
     def list_attractions(self, network_id: str) -> List[Dict[str, Any]]:
         """List editable attractions without loading the large graph document."""
 
         network_id = self._validated_id(network_id)
         if not self._path(network_id).exists():
-            raise PlanningError("Nie znaleziono przygotowanego zestawu danych.")
+            raise FileNotFoundError("Nie znaleziono przygotowanego zestawu danych.")
         if self._attractions_path(network_id).exists():
             return self._read_attractions(network_id)
 
@@ -201,96 +180,22 @@ class PreparedNetworkStore:
             self._write_attractions(network_id, items)
         return items
 
-    @staticmethod
-    def _updated_attraction_rows(
-        items: List[Dict[str, Any]], edits: Any
-    ) -> List[Dict[str, Any]]:
-        """Validate editor input and apply it to lightweight rows."""
-
-        if not isinstance(edits, list) or not edits:
-            raise PlanningError("Nie przekazano zmian atrakcji do zapisania.")
-        rows_by_id = {str(item["id"]): dict(item) for item in items}
-        unknown_ids = []
-        for edit in edits:
-            if not isinstance(edit, dict):
-                raise PlanningError("Nieprawidłowy format zmian atrakcji.")
-            attraction_id = str(edit.get("id") or "")
-            row = rows_by_id.get(attraction_id)
-            if row is None:
-                unknown_ids.append(attraction_id)
-                continue
-            try:
-                duration = float(edit.get("duration_seconds"))
-            except (TypeError, ValueError) as exc:
-                raise PlanningError("Czas zwiedzania musi być liczbą.") from exc
-            if duration < 0 or not math.isfinite(duration):
-                raise PlanningError("Czas zwiedzania musi być nieujemną, skończoną liczbą.")
-            enabled = edit.get("enabled")
-            if not isinstance(enabled, bool):
-                raise PlanningError("Pole aktywności atrakcji musi mieć wartość logiczną.")
-            row["duration_seconds"] = round(duration, 2)
-            row["enabled"] = enabled
-        if unknown_ids:
-            raise PlanningError(f"Nie znaleziono atrakcji: {', '.join(unknown_ids)}.")
-        return sorted(
-            rows_by_id.values(),
-            key=lambda item: (-float(item["weight"]), str(item["name"]).casefold()),
-        )
-
-    def update_attractions(
-        self, network_id: str, edits: Any
-    ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        """Persist editor changes in the sidecar and refresh an active cache."""
-
-        self._ensure_writable()
-        network_id = self._validated_id(network_id)
-        items = self._updated_attraction_rows(self.list_attractions(network_id), edits)
-        self._write_attractions(network_id, items)
-
-        cached = self._cache.get(network_id)
-        if cached is not None:
-            try:
-                update_prepared_attractions(cached, edits)
-            except PlanningError:
-                self._cache.pop(network_id, None)
-                raise
-
-        metadata_path = self._metadata_path(network_id)
-        try:
-            with metadata_path.open("r", encoding="utf-8") as stream:
-                metadata = json.load(stream)
-        except (OSError, ValueError, TypeError) as exc:
-            raise PlanningError("Metadane przygotowanego zestawu są uszkodzone lub niekompletne.") from exc
-
-        weights_by_vertex: Dict[int, float] = {}
-        for item in items:
-            if item["enabled"]:
-                vertex_id = int(item["vertex_id"])
-                weights_by_vertex[vertex_id] = weights_by_vertex.get(
-                    vertex_id, 0.0
-                ) + float(item["weight"])
-        metadata["attraction_vertices"] = sum(
-            weight > 0 for weight in weights_by_vertex.values()
-        )
-        metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-        self._write_metadata(metadata)
-        return items, metadata
-
     def load(self, network_id: str) -> PreparedNetwork:
         """Load and cache a prepared network, validating its persisted shape."""
 
         network_id = self._validated_id(network_id)
         path = self._path(network_id)
-        if network_id in self._cache:
-            network = self._cache.pop(network_id)
-            self._cache[network_id] = network
-            return network
+        with self._cache_lock:
+            network = self._cache.pop(network_id, None)
+            if network is not None:
+                self._cache[network_id] = network
+                return network
         if not path.exists():
-            raise PlanningError("Nie znaleziono przygotowanego zestawu danych.")
+            raise FileNotFoundError("Nie znaleziono przygotowanego zestawu danych.")
         try:
             with path.open("r", encoding="utf-8") as stream:
                 document = json.load(stream)
-            network = self._deserialize(document)
+            network = self.deserialize(document)
             if self._attractions_path(network_id).exists():
                 sidecar_items = self._read_attractions(network_id)
                 update_prepared_attractions(
@@ -371,7 +276,9 @@ class PreparedNetworkStore:
         }
 
     @staticmethod
-    def _deserialize(document: Dict[str, Any]) -> PreparedNetwork:
+    def deserialize(document: Dict[str, Any]) -> PreparedNetwork:
+        """Validate and rebuild a prepared network from its JSON document."""
+
         if document.get("version") != 1:
             raise PlanningError("Nieobsługiwana wersja przygotowanego zestawu.")
         graph = Graph()
@@ -417,19 +324,29 @@ class PreparedNetworkStore:
         duration_field = document.get("duration_field")
         if not duration_field:
             duration_field = next(
-                (candidate for candidate in ("duration", "time", "czas", "visit_time") if candidate in sample_properties),
+                (
+                    candidate
+                    for candidate in ("duration", "time", "czas", "visit_time")
+                    if candidate in sample_properties
+                ),
                 "duration",
             )
         weight_field = document.get("weight_field")
         if not weight_field:
             weight_field = next(
-                (candidate for candidate in ("weight", "views", "waga", "rating") if candidate in sample_properties),
+                (
+                    candidate
+                    for candidate in ("weight", "views", "waga", "rating")
+                    if candidate in sample_properties
+                ),
                 "weight",
             )
         network = PreparedNetwork(
             graph=graph,
             edges=edges,
-            attractions_by_vertex={int(key): value for key, value in document["attractions_by_vertex"].items()},
+            attractions_by_vertex={
+                int(key): value for key, value in document["attractions_by_vertex"].items()
+            },
             reference_latitude=reference_latitude,
             warnings=list(document.get("warnings") or []),
             cost_matrix=matrix,

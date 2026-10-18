@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="description" content="Otwarty planer wielodniowych tras zwiedzania">
   <meta name="referrer" content="no-referrer">
-  <title>Wanderplan — planer zwiedzania</title>
-  <link rel="preconnect" href="https://unpkg.com">
+  <title>PlanYourRoute</title>
+  <link rel="icon" href="/static/brand-logo-plum.png?v=1" type="image/png">
   <link rel="preconnect" href="https://tiles.openfreemap.org">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/styles.css?v=59">
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css?v=1.9.4">
+  <link rel="stylesheet" href="/static/vendor/maplibre-gl/maplibre-gl.css?v=6.10.0">
+  <link rel="stylesheet" href="/static/styles.css?v=78">
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
       <header class="brand">
-        <img class="brand-mark" src="/static/brand-logo.png?v=1" alt="">
-        <div><strong>Wanderplan</strong><span>planer tras zwiedzania</span></div>
+        <img class="brand-mark" src="/static/brand-logo-plum.png?v=1" alt="">
+        <div><strong>PlanYourRoute</strong></div>
         <button class="mobile-panel-toggle" id="mobilePanelToggle" type="button" aria-expanded="true" aria-controls="planningControls" aria-label="Zwiń panel planowania">
           <span class="mobile-panel-toggle-label">Zwiń</span><span class="mobile-panel-toggle-icon" aria-hidden="true">⌃</span>
         </button>
@@ -26,7 +26,6 @@
       <main class="controls" id="planningControls">
         <section class="intro compact-intro">
           <h1>Zaplanuj wakacje<br><em>krok po kroku</em></h1>
-          <p>Utwórz pełny plan zwiedzania w zaledwie trzech krótkich krokach</p>
         </section>
 
         <div class="steps" id="steps">
@@ -103,6 +102,10 @@
                 <label>Liczba dni<input id="days" type="number" min="1" max="14" value="2"></label>
                 <label>Dzienny czas zwiedzania<div class="input-unit"><input id="maxHours" type="number" min="0.5" max="24" step="0.5" value="8"><span>h</span></div></label>
               </div>
+              <label id="algorithmControl" hidden>Algorytm wyznaczania trasy
+                <select id="algorithm"><option value="current">Obecny</option><option value="legacy">Stary (losowanie i wyżarzanie)</option></select>
+              </label>
+              <p class="step-note" id="legacyAlgorithmNote" hidden>Stary algorytm wybiera atrakcje losowo i poprawia trasę metodą symulowanego wyżarzania. Ustawienia stylu zwiedzania i elastyczności trasy nie wpływają na ten wariant.</p>
               <details class="advanced-settings compact">
                 <summary>Dostosuj swój plan</summary>
                 <div class="field-grid">
@@ -112,7 +115,7 @@
                       <span>Odkrywaj też mniej znane miejsca</span>
                       <span>Skup się na najważniejszych atrakcjach</span>
                     </div>
-                    <input id="mustSee" type="range" min="1" max="10" step="1" value="2" aria-label="Styl zwiedzania: od mniej znanych miejsc do najważniejszych atrakcji">
+                    <input id="mustSee" type="range" min="1" max="10" step="1" value="3" aria-label="Styl zwiedzania: od mniej znanych miejsc do najważniejszych atrakcji">
                   </div>
                   <div class="plan-preference span-2">
                     <label for="nearbyDistance">Elastyczność trasy</label>
@@ -144,12 +147,19 @@
           <button type="button" id="mobileShowPlan" aria-label="Pokaż plan na całym ekranie">Plan</button>
         </div>
         <div class="progress-panel" id="progressPanel" hidden>
-          <div class="progress-head"><div><p class="eyebrow" id="progressEyebrow">Wyznaczanie trasy</p><h2 id="progressTitle">Przygotowuję plan…</h2></div><strong id="progressPercent">0%</strong></div>
-          <div class="progress-track"><span id="progressBar"></span></div>
-          <p id="progressMessage">Rozpoczynam przetwarzanie.</p>
+          <div class="progress-head"><h2 id="progressTitle">Przygotowuję plan…</h2><strong class="progress-percent" id="progressPercent">0%</strong></div>
+          <div class="progress-track" id="progressTrack" role="progressbar" aria-labelledby="progressTitle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="footsteps" aria-hidden="true">
+              <i class="footstep"></i><i class="footstep"></i><i class="footstep"></i><i class="footstep"></i>
+              <i class="footstep"></i><i class="footstep"></i><i class="footstep"></i><i class="footstep"></i>
+              <i class="footstep"></i><i class="footstep"></i><i class="footstep"></i><i class="footstep"></i>
+              <i class="footstep"></i><i class="footstep"></i><i class="footstep"></i><i class="footstep"></i>
+              <i class="footstep"></i><i class="footstep"></i>
+            </div>
+          </div>
         </div>
         <div id="resultsContent" hidden>
-          <div class="results-head"><div><p class="eyebrow">Gotowy plan</p><h2>Plan zwiedzania</h2></div><div class="mobile-result-actions"><button type="button" class="mobile-edit-plan" id="mobileEditPlan">Zmień ustawienia</button><button type="button" class="mobile-edit-attractions" id="resultEditAttractions">Edytuj atrakcje na trasie</button></div></div>
+          <div class="results-head"><h2>Plan zwiedzania</h2><div class="mobile-result-actions"><button type="button" class="mobile-edit-plan" id="mobileEditPlan">Zmień ustawienia</button><button type="button" class="mobile-edit-attractions" id="resultEditAttractions">Edytuj atrakcje na trasie</button></div></div>
           <div id="warnings"></div>
           <div id="dayCards" class="day-cards"></div>
         </div>
@@ -185,9 +195,6 @@
     </section>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js" integrity="sha384-tXYNKOHx4T02jMP7YYCtBxPIv1B5gaA5mcVPBzqMp6d7VzWzxJgI2aWF/nJLrQdS" crossorigin="anonymous"></script>
-  <script type="module" src="/static/app.js?v=74"></script>
+  <script type="module" src="/static/app.js?v=88"></script>
 </body>
 </html>

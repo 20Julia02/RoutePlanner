@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import heapq
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Sequence
 
 from shapely.geometry import LineString
 
@@ -24,8 +24,13 @@ from geojson_utils import (
     valid_line,
 )
 from models import CostMatrix, Edge, Graph, Node
-from planning_models import EdgeGeometry, GeoJSON, PlanningError, PreparedNetwork, ProgressCallback
-
+from planning_models import (
+    EdgeGeometry,
+    GeoJSON,
+    PlanningError,
+    PreparedNetwork,
+    ProgressCallback,
+)
 
 TIME_UNITS = {"seconds": 1.0, "minutes": 60.0, "hours": 3600.0}
 MAX_FIELD_NAME_LENGTH = 128
@@ -38,9 +43,7 @@ MAX_ATTRACTION_WEIGHT = 1_000_000
 def _field_name(fields: Mapping[str, Any], key: str) -> str:
     value = str(fields.get(key) or "")
     if len(value) > MAX_FIELD_NAME_LENGTH:
-        raise PlanningError(
-            f"Nazwa pola może mieć najwyżej {MAX_FIELD_NAME_LENGTH} znaków."
-        )
+        raise PlanningError(f"Nazwa pola może mieć najwyżej {MAX_FIELD_NAME_LENGTH} znaków.")
     return value
 
 
@@ -142,7 +145,9 @@ def _build_edge_rows(
             )
         )
     if not rows:
-        raise PlanningError("Po przygotowaniu topologii sieć nie zawiera żadnej poprawnej krawędzi.")
+        raise PlanningError(
+            "Po przygotowaniu topologii sieć nie zawiera żadnej poprawnej krawędzi."
+        )
     return endpoint_index, rows
 
 
@@ -181,11 +186,14 @@ def _attach_attractions(
             weight_field,
             default=0,
         )
-        duration = number(
-            property_value(feature, duration_field, "czas zwiedzania"),
-            duration_field,
-            default=0,
-        ) * duration_multiplier
+        duration = (
+            number(
+                property_value(feature, duration_field, "czas zwiedzania"),
+                duration_field,
+                default=0,
+            )
+            * duration_multiplier
+        )
         if weight < 0 or duration < 0:
             raise PlanningError("Waga i czas zwiedzania atrakcji nie mogą być ujemne.")
         if weight > MAX_ATTRACTION_WEIGHT:
@@ -232,7 +240,7 @@ def _create_graph(
                 id=node_id,
                 x=x,
                 y=y,
-                weight=int(round(aggregate.get("weight", 0))),
+                weight=round(aggregate.get("weight", 0)),
                 time=float(aggregate.get("duration", 0)),
             )
         )
@@ -281,9 +289,7 @@ def prepare_network(
     topology_tolerance = positive_number(
         options.get("topology_tolerance_m", 1), "tolerancja topologii"
     )
-    snap_distance = positive_number(
-        options.get("snap_distance_m", 500), "promień dowiązania"
-    )
+    snap_distance = positive_number(options.get("snap_distance_m", 500), "promień dowiązania")
     walking_speed = positive_number(
         options.get("walking_speed_mps", 1.4), "prędkość poruszania się"
     )
@@ -379,18 +385,19 @@ def build_cost_matrix(graph: Graph, progress: ProgressCallback = None) -> CostMa
     return matrix
 
 
-def attraction_duration_seconds(
-    network: PreparedNetwork, properties: Mapping[str, Any]
-) -> float:
+def attraction_duration_seconds(network: PreparedNetwork, properties: Mapping[str, Any]) -> float:
     """Return normalized visit duration from current or legacy metadata."""
 
     if "_visit_duration_seconds" in properties:
         return number(properties.get("_visit_duration_seconds"), "czas zwiedzania", default=0)
-    return number(
-        properties.get(network.duration_field),
-        network.duration_field or "czas zwiedzania",
-        default=0,
-    ) * network.duration_multiplier
+    return (
+        number(
+            properties.get(network.duration_field),
+            network.duration_field or "czas zwiedzania",
+            default=0,
+        )
+        * network.duration_multiplier
+    )
 
 
 def _ensure_attraction_metadata(network: PreparedNetwork) -> None:
@@ -428,7 +435,7 @@ def recalculate_attraction_nodes(network: PreparedNetwork) -> None:
                 continue
             weight += number(properties.get("_attraction_weight"), "waga atrakcji", default=0)
             duration += attraction_duration_seconds(network, properties)
-        network.graph.set_attraction_values(vertex_id, int(round(weight)), duration)
+        network.graph.set_attraction_values(vertex_id, round(weight), duration)
 
 
 def list_prepared_attractions(network: PreparedNetwork) -> List[Dict[str, Any]]:
@@ -446,9 +453,7 @@ def list_prepared_attractions(network: PreparedNetwork) -> List[Dict[str, Any]]:
                         properties.get(network.name_field)
                         or f"Atrakcja {properties['_planner_id']}"
                     ),
-                    "duration_seconds": round(
-                        attraction_duration_seconds(network, properties), 2
-                    ),
+                    "duration_seconds": round(attraction_duration_seconds(network, properties), 2),
                     "weight": number(
                         properties.get("_attraction_weight"),
                         "waga atrakcji",
@@ -464,9 +469,7 @@ def list_prepared_attractions(network: PreparedNetwork) -> List[Dict[str, Any]]:
     )
 
 
-def update_prepared_attractions(
-    network: PreparedNetwork, edits: Any
-) -> List[Dict[str, Any]]:
+def update_prepared_attractions(network: PreparedNetwork, edits: Any) -> List[Dict[str, Any]]:
     """Apply browser editor changes and return the updated rows."""
 
     if not isinstance(edits, list) or not edits:
@@ -511,9 +514,7 @@ def prepared_network_preview(network: PreparedNetwork) -> GeoJSON:
         for edge_id, geometry in network.edges.items()
     ]
     attractions = [
-        feature
-        for features in network.attractions_by_vertex.values()
-        for feature in features
+        feature for features in network.attractions_by_vertex.values() for feature in features
     ]
     return {
         "edges": {"type": "FeatureCollection", "features": edge_features},

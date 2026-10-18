@@ -9,14 +9,7 @@ venv/
 env/
 ENV/
 
-# Tests and coverage reports
-tests/
-test/
-test_*.py
-*_test.py
-*.test.js
-*.spec.js
-static/module-smoke-test.html
+# Test caches and coverage reports
 .pytest_cache/
 .coverage
 .coverage.*

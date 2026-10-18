@@ -1,9 +1,8 @@
-/** Private, same-browser storage for local networks and public-network edits. */
+/** Private, same-browser storage for public-network attraction edits. */
 
+// Keep the legacy database name so saved browser edits survive the product rename.
 const DATABASE_NAME = "wanderplan-local-networks";
 const DATABASE_VERSION = 2;
-const DATA_STORE = "network-data";
-const METADATA_STORE = "network-metadata";
 const PUBLIC_EDITS_STORE = "public-network-edits";
 
 
@@ -29,12 +28,6 @@ function openDatabase() {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     request.addEventListener("upgradeneeded", () => {
       const database = request.result;
-      if (!database.objectStoreNames.contains(DATA_STORE)) {
-        database.createObjectStore(DATA_STORE, { keyPath: "id" });
-      }
-      if (!database.objectStoreNames.contains(METADATA_STORE)) {
-        database.createObjectStore(METADATA_STORE, { keyPath: "id" });
-      }
       if (!database.objectStoreNames.contains(PUBLIC_EDITS_STORE)) {
         database.createObjectStore(PUBLIC_EDITS_STORE, { keyPath: "network_id" });
       }
@@ -46,74 +39,12 @@ function openDatabase() {
 }
 
 
-export function createLocalNetworkId() {
-  if (typeof crypto.randomUUID === "function") return crypto.randomUUID().replaceAll("-", "");
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return [...bytes].map(value => value.toString(16).padStart(2, "0")).join("");
-}
-
-
 export async function requestPersistentLocalStorage() {
   if (navigator.storage?.persist) {
     try { return await navigator.storage.persist(); }
     catch (_) { return false; }
   }
   return false;
-}
-
-
-export async function listLocalNetworks() {
-  const database = await openDatabase();
-  try {
-    const transaction = database.transaction(METADATA_STORE, "readonly");
-    const done = transactionDone(transaction);
-    const items = await requestResult(transaction.objectStore(METADATA_STORE).getAll());
-    await done;
-    return items.sort((first, second) => String(second.updated_at).localeCompare(String(first.updated_at)));
-  } finally {
-    database.close();
-  }
-}
-
-
-export async function loadLocalNetwork(id) {
-  const database = await openDatabase();
-  try {
-    const transaction = database.transaction(DATA_STORE, "readonly");
-    const done = transactionDone(transaction);
-    const result = await requestResult(transaction.objectStore(DATA_STORE).get(String(id)));
-    await done;
-    if (!result) throw new Error("Nie znaleziono lokalnego zestawu w tej przeglądarce.");
-    return result;
-  } finally {
-    database.close();
-  }
-}
-
-
-export async function saveLocalNetwork(metadata, data) {
-  const database = await openDatabase();
-  try {
-    const transaction = database.transaction([METADATA_STORE, DATA_STORE], "readwrite");
-    transaction.objectStore(METADATA_STORE).put(metadata);
-    transaction.objectStore(DATA_STORE).put({ id: metadata.id, ...data });
-    await transactionDone(transaction);
-  } finally {
-    database.close();
-  }
-}
-
-
-export async function deleteLocalNetwork(id) {
-  const database = await openDatabase();
-  try {
-    const transaction = database.transaction([METADATA_STORE, DATA_STORE], "readwrite");
-    transaction.objectStore(METADATA_STORE).delete(String(id));
-    transaction.objectStore(DATA_STORE).delete(String(id));
-    await transactionDone(transaction);
-  } finally {
-    database.close();
-  }
 }
 
 

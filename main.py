@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from network_preparation import prepare_network
-from public_catalog import PublicNetworkCatalog
 from prepared_store import PreparedNetworkStore
+from public_catalog import PublicNetworkCatalog
 from security import (
     RequestBodyLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -24,7 +24,6 @@ from web_service import (
     plan_prepared_network,
     plan_route,
 )
-
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -63,29 +62,22 @@ def _env_flag(name: str, default: bool = False) -> bool:
 # A local installation is bounded only by the computer's available resources.
 # Vercel requests still have to stay within the hosting platform's boundary.
 DEFAULT_MAX_REQUEST_BYTES = 4_000_000 if os.getenv("VERCEL") else 0
-MAX_REQUEST_BYTES = _nonnegative_env_int(
-    "APP_MAX_REQUEST_BYTES", DEFAULT_MAX_REQUEST_BYTES
-)
+MAX_REQUEST_BYTES = _nonnegative_env_int("APP_MAX_REQUEST_BYTES", DEFAULT_MAX_REQUEST_BYTES)
 MAX_CONCURRENT_PLANS = _positive_env_int("APP_MAX_CONCURRENT_PLANS", 2)
 PLAN_REQUESTS_PER_MINUTE = _positive_env_int("APP_PLAN_REQUESTS_PER_MINUTE", 10)
 MAX_PUBLIC_NETWORK_BYTES = _positive_env_int("APP_MAX_PUBLIC_NETWORK_BYTES", 200_000_000)
-ENABLE_DOCS = os.getenv("APP_ENABLE_DOCS", "").strip().lower() in {"1", "true", "yes"}
+ENABLE_DOCS = _env_flag("APP_ENABLE_DOCS")
 ALLOW_LOCAL_ADMIN = _env_flag("APP_ALLOW_LOCAL_ADMIN", default=not bool(os.getenv("VERCEL")))
 DEFAULT_ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver", "*.vercel.app"]
 configured_hosts = [
-    value.strip()
-    for value in os.getenv("APP_ALLOWED_HOSTS", "").split(",")
-    if value.strip()
+    value.strip() for value in os.getenv("APP_ALLOWED_HOSTS", "").split(",") if value.strip()
 ]
 ALLOWED_HOSTS = list(dict.fromkeys([*DEFAULT_ALLOWED_HOSTS, *configured_hosts]))
 public_data_hosts_value = (
-    (os.getenv("APP_PUBLIC_DATA_HOSTS") or "").strip()
-    or ".public.blob.vercel-storage.com"
-)
+    os.getenv("APP_PUBLIC_DATA_HOSTS") or ""
+).strip() or ".public.blob.vercel-storage.com"
 PUBLIC_DATA_HOSTS = tuple(
-    value.strip()
-    for value in public_data_hosts_value.split(",")
-    if value.strip()
+    value.strip() for value in public_data_hosts_value.split(",") if value.strip()
 )
 
 network_store = PublicNetworkCatalog(
@@ -100,17 +92,50 @@ plan_slots = threading.BoundedSemaphore(MAX_CONCURRENT_PLANS)
 plan_rate_limiter = SlidingWindowRateLimiter(PLAN_REQUESTS_PER_MINUTE, 60)
 
 app = FastAPI(
-    title="Planer tras zwiedzania API",
+    title="PlanYourRoute API",
     version="1.0.0",
     description="Planowanie wielodniowych tras pieszych.",
-    docs_url="/docs" if ENABLE_DOCS else None,
-    redoc_url="/redoc" if ENABLE_DOCS else None,
+    docs_url=None,
+    redoc_url=None,
     openapi_url="/openapi.json" if ENABLE_DOCS else None,
 )
 if MAX_REQUEST_BYTES:
     app.add_middleware(RequestBodyLimitMiddleware, max_bytes=MAX_REQUEST_BYTES)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 app.add_middleware(SecurityHeadersMiddleware)
+
+
+if ENABLE_DOCS:
+
+    @app.get("/docs", include_in_schema=False)
+    def api_docs() -> HTMLResponse:
+        """Serve Swagger UI entirely from local, versioned assets."""
+
+        return HTMLResponse(
+            """<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PlanYourRoute API</title>
+  <link rel="icon" href="/static/brand-logo-plum.png?v=1" type="image/png">
+  <link rel="stylesheet" href="/static/vendor/swagger-ui/swagger-ui.css?v=5.33.1">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="/static/vendor/swagger-ui/swagger-ui-bundle.js?v=5.33.1"></script>
+  <script src="/static/js/swagger-docs.js?v=1"></script>
+</body>
+</html>
+""",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/redoc", include_in_schema=False)
+    def legacy_api_docs_redirect() -> RedirectResponse:
+        """Keep the former documentation address usable."""
+
+        return RedirectResponse("/docs")
 
 
 def _calculate_plan(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -129,7 +154,9 @@ def _calculate_plan(payload: Dict[str, Any]) -> Dict[str, Any]:
             raise PlanningError("Publiczny zestaw jest uszkodzony lub niedostępny.") from exc
         return plan_prepared_network(network, payload)
     if not ALLOW_LOCAL_ADMIN:
-        raise PlanningError("W publicznej aplikacji można korzystać tylko z przygotowanych zestawów.")
+        raise PlanningError(
+            "W publicznej aplikacji można korzystać tylko z przygotowanych zestawów."
+        )
     return plan_route(payload)
 
 
@@ -186,6 +213,11 @@ def create_plan(payload: Dict[str, Any], request: Request) -> Dict[str, Any]:
         raise HTTPException(
             status_code=422,
             detail="W publicznej aplikacji można korzystać tylko z przygotowanych zestawów.",
+        )
+    if payload.get("algorithm", "current") == "legacy" and not _local_admin_allowed(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Stary algorytm jest dostępny tylko lokalnie dla administratora.",
         )
     client_key = request.client.host if request.client else "unknown"
     if not plan_rate_limiter.allow(client_key):

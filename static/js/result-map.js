@@ -2,11 +2,12 @@
 
 import {
   DAY_COLORS,
+  L,
   clearMapLayers,
   map,
   mapFitOptions,
   state
-} from "./map-context.js?v=12";
+} from "./map-context.js?v=15";
 import {
   byId,
   escapeHtml,
@@ -32,10 +33,10 @@ export function clearResultMap() {
 
 
 /** Render every route day on the map and populate cards and legend. */
-export function renderResult(result) {
+export function renderResult(result, { showWarnings = false } = {}) {
   clearResultMap();
   result.days.forEach(day => renderDayLayers(day));
-  showResultPanel(result);
+  showResultPanel(result, showWarnings);
   fitAllResultLayers();
 }
 
@@ -60,7 +61,7 @@ function fitAllResultLayers() {
 }
 
 
-function showResultPanel(result) {
+function showResultPanel(result, showWarnings) {
   byId("results").hidden = false;
   byId("progressPanel").hidden = true;
   byId("resultsContent").hidden = false;
@@ -69,10 +70,12 @@ function showResultPanel(result) {
   byId("planStepStatus").textContent = "Plan gotowy";
   const warnings = byId("warnings");
   warnings.textContent = "";
-  const visibleWarnings = (result.warnings || []).filter(
-    message => !String(message).startsWith("Pominięto krawędź")
-  );
-  renderWarnings(warnings, visibleWarnings, "Pokaż pominięte obiekty i ostrzeżenia");
+  if (showWarnings) {
+    const visibleWarnings = (result.warnings || []).filter(
+      message => !String(message).startsWith("Pominięto krawędź")
+    );
+    renderWarnings(warnings, visibleWarnings, "Pokaż pominięte obiekty i ostrzeżenia");
+  }
   byId("dayCards").innerHTML = result.days.map(renderDayCard).join("");
   renderMobileMapLegend(result.days);
   document.querySelectorAll("[data-day-toggle]").forEach(toggle => (
@@ -234,12 +237,14 @@ function createAttractionIcon(orders, color) {
 }
 
 
-function createCarouselButton(modifier, label, symbol) {
+function createCarouselButton(modifier, label) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `attraction-popup-arrow attraction-popup-arrow--${modifier}`;
   button.setAttribute("aria-label", label);
-  button.textContent = symbol;
+  button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+    + '<path d="M8.6 4.7C7.5 3.9 6 4.7 6 6.1v11.8c0 1.4 1.5 2.2 2.6 1.4l9-5.9a1.7 1.7 0 0 0 0-2.8l-9-5.9Z"/>'
+    + "</svg>";
   return button;
 }
 
@@ -250,8 +255,8 @@ function createAttractionGroupPopup(features, day, itineraryByOrder) {
   }
   const container = document.createElement("section");
   container.className = "attraction-popup-carousel";
-  const previous = createCarouselButton("previous", "Poprzednia atrakcja", "‹");
-  const next = createCarouselButton("next", "Następna atrakcja", "›");
+  const previous = createCarouselButton("previous", "Poprzednia atrakcja");
+  const next = createCarouselButton("next", "Następna atrakcja");
   const viewport = document.createElement("div");
   viewport.className = "attraction-popup-viewport";
   const cards = features.map((feature, index) => {

@@ -1,11 +1,11 @@
-import { map, mapFitOptions, state } from "./js/map-context.js?v=12";
-import { clearResultMap, renderResult } from "./js/result-map.js?v=22";
+import { L, map, mapFitOptions, state } from "./js/map-context.js?v=15";
+import { clearResultMap, renderResult } from "./js/result-map.js?v=27";
 import { apiErrorMessage, byId } from "./js/ui-utils.js?v=5";
 import {
   loadPublicNetworkEdits,
   requestPersistentLocalStorage,
   savePublicNetworkEdits
-} from "./js/local-store.js?v=2";
+} from "./js/local-store.js?v=3";
 
 let startMarker;
 let dataReady = false;
@@ -14,6 +14,7 @@ let selectingStart = false;
 const mobileLayout = window.matchMedia("(max-width: 900px)");
 const PUBLIC_PREFIX = "public:";
 const START_SNAP_DISTANCE_METERS = 5000;
+const START_BOUNDS_DISTANCE_METERS = 3000;
 const NEARBY_DISTANCE_LEVELS = [100, 250, 500, 1000, 2000];
 const NEARBY_DISTANCE_LABELS = [
   "Bardzo blisko trasy",
@@ -29,6 +30,30 @@ let geolocationRequestId = 0;
 let planningProgressTimer = null;
 let planningProgressValue = 0;
 
+function enforceMaximum(input) {
+  if (input.value === "") return;
+  const value = Number(input.value);
+  const maximum = Number(input.max);
+  if (Number.isFinite(value) && Number.isFinite(maximum) && value > maximum) {
+    input.value = input.max;
+  }
+}
+
+["days", "maxHours"].forEach(id => {
+  const input = byId(id);
+  input.addEventListener("input", () => enforceMaximum(input));
+});
+
+function updateRangeProgress(slider) {
+  const minimum = Number(slider.min) || 0;
+  const maximum = Number(slider.max) || 100;
+  const value = Number(slider.value);
+  const progress = maximum > minimum
+    ? Math.max(0, Math.min(100, (value - minimum) * 100 / (maximum - minimum)))
+    : 0;
+  slider.style.setProperty("--range-progress", `${progress}%`);
+}
+
 function updateMustSeeRange() {
   const hours = Number(byId("maxHours").value);
   if (!Number.isFinite(hours) || hours <= 0) return;
@@ -36,6 +61,7 @@ function updateMustSeeRange() {
   const maximum = Math.floor(hours) + 2;
   slider.max = String(maximum);
   if (Number(slider.value) > maximum) slider.value = String(maximum);
+  updateRangeProgress(slider);
 }
 
 byId("maxHours").addEventListener("input", updateMustSeeRange);
@@ -57,6 +83,12 @@ function updateNearbyDistanceLabel() {
 
 byId("nearbyDistance").addEventListener("input", updateNearbyDistanceLabel);
 updateNearbyDistanceLabel();
+
+["mustSee", "nearbyDistance"].forEach(id => {
+  const slider = byId(id);
+  slider.addEventListener("input", () => updateRangeProgress(slider));
+  updateRangeProgress(slider);
+});
 
 
 function networkReference(value) {
@@ -332,6 +364,7 @@ async function initializeApplication() {
     const response = await fetch("/api/config");
     const config = await response.json();
     localAdminEnabled = response.ok && config.local_admin === true;
+    byId("algorithmControl").hidden = !localAdminEnabled;
   } catch (_) {
     localAdminEnabled = false;
   }
@@ -526,8 +559,18 @@ byId("planFromAttractionEditor").addEventListener("click", async () => {
 
 function setStart(lat, lon) {
   if (!dataReady) {
-    return;
+    return false;
   }
+  const bounds = activeNetworkBounds();
+  if (bounds && distanceFromBounds(lat, lon, bounds) > START_BOUNDS_DISTANCE_METERS) {
+    const previous = startMarker?.getLatLng();
+    byId("startLat").value = previous ? previous.lat.toFixed(6) : "";
+    byId("startLon").value = previous ? previous.lng.toFixed(6) : "";
+    showStartLocationError("Wybrany punkt leży ponad 3 km poza obszarem sieci pieszej. Wskaż bliższy punkt.");
+    setMobilePlanningPanel(false);
+    return false;
+  }
+  hideStartLocationMessage();
   if (state.result) resetResult();
   byId("startLat").value = Number(lat).toFixed(6);
   byId("startLon").value = Number(lon).toFixed(6);
@@ -547,6 +590,7 @@ function setStart(lat, lon) {
   byId("planStepStatus").textContent = "Wpisz liczbę dni i czas trwania każdej trasy";
   openStep("planStep");
   setMobilePlanningPanel(false);
+  return true;
 }
 
 function clearStart() {
@@ -623,7 +667,7 @@ function activeNetworkBounds() {
   const selectionId = byId("preparedNetwork").value;
   const preparedBounds = state.networkMetadata[selectionId]?.bounds;
   if (Array.isArray(preparedBounds) && preparedBounds.length === 4) return preparedBounds;
-  return collectionBounds(state.edges, state.attractions);
+  return collectionBounds(state.edges);
 }
 
 function distanceFromBounds(lat, lon, bounds) {
@@ -651,17 +695,13 @@ byId("useCurrentLocationButton").addEventListener("click", () => {
     setGeolocationBusy(false);
     const lat = Number(position.coords.latitude);
     const lon = Number(position.coords.longitude);
-    const bounds = activeNetworkBounds();
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       showStartLocationError("Urządzenie zwróciło nieprawidłową lokalizację. Wskaż punkt na mapie.");
       return;
     }
-    if (bounds && distanceFromBounds(lat, lon, bounds) > START_SNAP_DISTANCE_METERS) {
-      showStartLocationError("Twoja lokalizacja znajduje się poza obszarem wybranego zestawu. Mapa pozostaje na planowanym obszarze — wskaż punkt startowy ręcznie.");
-      return;
+    if (setStart(lat, lon)) {
+      byId("startStepStatus").textContent = "Twoja lokalizacja ustawiona";
     }
-    setStart(lat, lon);
-    byId("startStepStatus").textContent = "Twoja lokalizacja ustawiona";
   }, error => {
     if (requestId !== geolocationRequestId) return;
     setGeolocationBusy(false);
@@ -691,7 +731,7 @@ function propertyNames(collection) {
 
 function fillSelect(id, properties, emptyLabel, guesses = []) {
   const select = byId(id);
-  select.innerHTML = `<option value="">${emptyLabel}</option>`;
+  select.replaceChildren(new Option(emptyLabel, ""));
   properties.forEach(name => select.add(new Option(name, name)));
   const normalized = value => value.toLowerCase().replace(/[_ -]/g, "");
   const guess = properties.find(name => guesses.some(item => normalized(name) === normalized(item)));
@@ -814,6 +854,7 @@ function payload() {
   if (reference?.source === "public") {
     return {
       network_id: reference.id,
+      algorithm: localAdminEnabled ? byId("algorithm").value : "current",
       start: { lat, lon },
       options: commonOptions(),
       attraction_edits: state.publicAttractionEdits || []
@@ -821,6 +862,11 @@ function payload() {
   }
   throw new Error("Wybierz przygotowany zestaw danych.");
 }
+
+byId("algorithm").addEventListener("change", () => {
+  byId("legacyAlgorithmNote").hidden = byId("algorithm").value !== "legacy";
+  resetResult();
+});
 
 byId("prepareButton").addEventListener("click", async () => {
   hideError();
@@ -857,7 +903,7 @@ byId("prepareButton").addEventListener("click", async () => {
     byId("prepareMessage").hidden = false;
     resetResult();
   } catch (error) {
-    showProgressError(error.message);
+    showProgressError();
     byId("prepareMessage").className = "message error";
     byId("prepareMessage").textContent = error.message;
     byId("prepareMessage").hidden = false;
@@ -872,6 +918,7 @@ byId("planButton").addEventListener("click", async () => {
     const serialized = JSON.stringify(body);
     setRouteBusy(true);
     startPlanningProgress();
+    if (mobileLayout.matches) setMobilePlanningPanel(true);
     const response = await fetch("/api/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -882,12 +929,16 @@ byId("planButton").addEventListener("click", async () => {
     await finishPlanningProgress();
     state.result = data;
     activateMobileResultLayout();
-    renderResult(data);
+    renderResult(data, { showWarnings: localAdminEnabled });
     setMobileResultView("split");
   } catch (error) {
     stopPlanningProgress();
-    showProgressError(error.message);
+    showProgressError();
     showError(error.message);
+    if (mobileLayout.matches) {
+      deactivateMobileResultLayout();
+      setMobilePlanningPanel(false);
+    }
   }
   finally {
     stopPlanningProgress();
@@ -896,21 +947,21 @@ byId("planButton").addEventListener("click", async () => {
 });
 
 const PLANNING_PROGRESS_STAGES = [
-  { limit: 28, step: 4, message: "Wczytuję dane potrzebne do ułożenia trasy." },
-  { limit: 52, step: 3, message: "Wybieram atrakcje na każdy dzień." },
-  { limit: 74, step: 2, message: "Skracam czas przejść między miejscami." },
-  { limit: 92, step: 1, message: "Dopracowuję przebieg trasy." }
+  { limit: 28, step: 4 },
+  { limit: 52, step: 3 },
+  { limit: 74, step: 2 },
+  { limit: 92, step: 1 }
 ];
 
 function startPlanningProgress() {
   stopPlanningProgress();
   planningProgressValue = 6;
-  showProgress(planningProgressValue, "Rozpoczynam układanie planu.");
+  showProgress(planningProgressValue);
   planningProgressTimer = window.setInterval(() => {
     const stage = PLANNING_PROGRESS_STAGES.find(item => planningProgressValue < item.limit);
     if (!stage) return;
     planningProgressValue = Math.min(stage.limit, planningProgressValue + stage.step);
-    showProgress(planningProgressValue, stage.message);
+    showProgress(planningProgressValue);
   }, 450);
 }
 
@@ -928,9 +979,9 @@ function progressDelay(milliseconds) {
 async function finishPlanningProgress() {
   stopPlanningProgress();
   const checkpoints = [
-    { value: 78, duration: 480, message: "Łączę gotowe odcinki trasy." },
-    { value: 92, duration: 240, message: "Przygotowuję plan do wyświetlenia." },
-    { value: 100, duration: 240, message: "Plan jest gotowy." }
+    { value: 78, duration: 480 },
+    { value: 92, duration: 240 },
+    { value: 100, duration: 240 }
   ];
   for (const checkpoint of checkpoints) {
     if (checkpoint.value <= planningProgressValue) continue;
@@ -940,27 +991,40 @@ async function finishPlanningProgress() {
       planningProgressValue = Math.round(
         start + (checkpoint.value - start) * step / steps
       );
-      showProgress(planningProgressValue, checkpoint.message);
+      showProgress(planningProgressValue);
       await progressDelay(checkpoint.duration / steps);
     }
   }
 }
 
-function showProgress(value, message, eyebrow = "Wyznaczanie trasy", title = "Układam najlepsze trasy…") {
+function showProgress(value, title = "Układam najlepsze trasy…") {
   byId("results").classList.remove("has-plan");
   byId("results").hidden = false;
   byId("resultsContent").hidden = true;
   byId("progressPanel").hidden = false;
-  byId("progressEyebrow").textContent = eyebrow;
   byId("progressTitle").textContent = value < 100 ? title : "Gotowe";
   byId("progressPercent").textContent = `${value}%`;
-  byId("progressBar").style.width = `${value}%`;
-  byId("progressMessage").textContent = message;
+  const progressTrack = byId("progressTrack");
+  progressTrack.setAttribute("aria-valuenow", String(value));
+  const footprintRow = progressTrack.querySelector(".footsteps");
+  const footprintCount = Math.max(18, Math.min(42, Math.floor(progressTrack.clientWidth / 30)));
+  while (footprintRow.children.length < footprintCount) {
+    const footprint = document.createElement("i");
+    footprint.className = "footstep";
+    footprintRow.appendChild(footprint);
+  }
+  while (footprintRow.children.length > footprintCount) {
+    footprintRow.lastElementChild.remove();
+  }
+  const footprints = footprintRow.querySelectorAll(".footstep");
+  footprints.forEach((footprint, index) => {
+    const threshold = footprints.length > 1 ? index * 100 / (footprints.length - 1) : 0;
+    footprint.classList.toggle("completed", value >= threshold);
+  });
 }
 
-function showProgressError(message) {
+function showProgressError() {
   byId("progressTitle").textContent = "Nie udało się przygotować planu";
-  byId("progressMessage").textContent = message;
 }
 
 function showError(message) { byId("formError").textContent = message; byId("formError").hidden = false; }

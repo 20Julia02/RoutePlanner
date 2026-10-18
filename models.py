@@ -89,12 +89,8 @@ class Graph:
         """Copy mutable node values while sharing read-only routing topology."""
 
         graph = Graph()
-        graph._nodes = {
-            node_id: replace(node) for node_id, node in self._nodes.items()
-        }
-        graph._attractions = {
-            node_id: graph._nodes[node_id] for node_id in self._attractions
-        }
+        graph._nodes = {node_id: replace(node) for node_id, node in self._nodes.items()}
+        graph._attractions = {node_id: graph._nodes[node_id] for node_id in self._attractions}
         graph._edges = self._edges
         graph._adj = self._adj
         return graph

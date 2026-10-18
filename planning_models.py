@@ -9,7 +9,6 @@ from shapely.geometry import LineString
 
 from models import CostMatrix, Graph
 
-
 GeoJSON = Dict[str, Any]
 Coordinate = tuple[float, float]
 ProgressCallback = Optional[Callable[[int, str], None]]

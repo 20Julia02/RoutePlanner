@@ -15,7 +15,6 @@ from network_preparation import (
 from planning_models import EdgeGeometry, PlanningError, PreparedNetwork
 from route_planning import plan_prepared_network, plan_route
 
-
 __all__ = [
     "EdgeGeometry",
     "PlanningError",

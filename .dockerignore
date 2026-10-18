@@ -7,3 +7,7 @@ tests
 .env
 .env.*
 .coverage
+data/prepared
+data/uploads
+uploads
+public-networks*.json

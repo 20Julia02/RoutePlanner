@@ -1,6 +1,6 @@
-# Wanderplan — bezpieczny planer tras zwiedzania
+# PlanYourRoute
 
-Wanderplan układa wielodniowe trasy na podstawie sieci pieszej i punktów atrakcji. Backend korzysta z FastAPI i Shapely, a interfejs z Leaflet i MapLibre.
+PlanYourRoute układa wielodniowe trasy na podstawie sieci pieszej i punktów atrakcji. Backend korzysta z FastAPI i Shapely, a interfejs z Leaflet i MapLibre.
 
 ## Model danych i uprawnienia
 
@@ -21,20 +21,28 @@ uvicorn main:app --reload
 
 Aplikacja działa pod `http://localhost:8000`. Pod tym adresem pojawia się przycisk „Przygotuj zestaw administratorski”. Po wskazaniu plików GeoJSON backend buduje graf oraz macierz kosztów i zapisuje wynik w `data/prepared`. Dokumentacja API jest domyślnie wyłączona; lokalnie można ją włączyć przez `APP_ENABLE_DOCS=true`.
 
+W lokalnym panelu administratora, w kroku „Określ szczegóły planu”, można wybrać algorytm **Obecny** albo **Stary (losowanie i wyżarzanie)**. Oba korzystają z tego samego przygotowanego zestawu. W `old_algorithm` pozostały wyłącznie moduły optymalizacji i wyszukiwania ścieżki; korzystają z modeli aplikacji i nie wymagają ArcPy. Stary wariant zachowuje sposób losowania i oceniania tras z pierwotnego skryptu ArcGIS, lecz wykonuje 10 000 losowań na dzień zamiast miliona, aby żądanie HTTP mogło się zakończyć w rozsądnym czasie. Ustawienia stylu zwiedzania i elastyczności trasy dotyczą tylko obecnego algorytmu. API przyjmuje pole `algorithm` o wartości `current` (domyślnie) lub `legacy`; wariant `legacy` jest dostępny wyłącznie przez lokalne połączenie administratora.
+
 Testy:
 
 ```powershell
+pip install -r requirements-dev.txt
 python -m unittest discover -s tests -v
+ruff check .
+ruff format --check .
 ```
 
 Docker:
 
 ```powershell
-docker build -t wanderplan .
-docker run --rm -p 8000:8000 wanderplan
+docker build -t planyourroute .
+docker run --rm -p 8000:8000 planyourroute
 ```
 
 Kontener działa jako użytkownik bez uprawnień administratora i ma kod aplikacji tylko do odczytu.
+Zapisywalny pozostaje wyłącznie katalog `/app/data/prepared`, używany przez lokalny panel
+administratora. Aby zachować przygotowane zestawy po usunięciu kontenera, zamontuj w nim lokalny
+katalog jako wolumin.
 
 ## Publikowanie publicznych zestawów na Vercelu
 
@@ -85,7 +93,7 @@ Przykład znajduje się w [.env.example](.env.example). Dostępne ustawienia:
 - `APP_MAX_REQUEST_BYTES` — maksymalny rozmiar JSON-u wejściowego; `0` wyłącza limit aplikacji (domyślnie lokalnie), natomiast na Vercelu domyślne jest 4 MB;
 - `APP_MAX_CONCURRENT_PLANS` — limit równoległych obliczeń w jednej instancji;
 - `APP_PLAN_REQUESTS_PER_MINUTE` — pomocniczy limit żądań na klienta w jednej instancji;
-- `APP_ENABLE_DOCS` — włącza `/docs` i `/openapi.json`;
+- `APP_ENABLE_DOCS` — włącza lokalnie serwowane `/docs` i `/openapi.json`;
 - `APP_ALLOW_LOCAL_ADMIN` — opcjonalne jawne włączenie lokalnego narzędzia administratora; na Vercelu domyślnie wyłączone, a endpoint i tak wymaga połączenia loopback;
 - `APP_PUBLIC_NETWORK_MANIFEST_URL` i `APP_PUBLIC_NETWORK_MANIFEST_SHA256` — katalog publicznych danych;
 - `APP_PUBLIC_DATA_HOSTS` — lista hostów danych, rozdzielona przecinkami;

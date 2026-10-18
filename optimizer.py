@@ -8,7 +8,6 @@ from typing import Collection, Dict, List, Optional, Tuple
 from models import CostMatrix, Graph, RouteResult
 from shortest_path_alg import PathAlgorithm
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -152,16 +151,10 @@ class RouteOptimizer:
         candidates.sort(key=lambda attraction: (-attraction.weight, attraction.time))
         return [attraction.id for attraction in candidates[: days * multiplier]]
 
-    def _region_travel_time(
-        self, attraction_id: int, day_route: List[int]
-    ) -> float:
+    def _region_travel_time(self, attraction_id: int, day_route: List[int]) -> float:
         """Return travel time from an attraction to the nearest place in a day."""
 
-        if not day_route:
-            return self._travel_time(self.start_id, attraction_id)
-        return min(
-            self._travel_time(attraction_id, member_id) for member_id in day_route
-        )
+        return min(self._travel_time(attraction_id, member_id) for member_id in day_route)
 
     def closest_day_region(
         self,
@@ -207,10 +200,7 @@ class RouteOptimizer:
             next_seed = max(
                 remaining,
                 key=lambda attraction_id: (
-                    min(
-                        self._travel_time(attraction_id, seed_id)
-                        for seed_id in seeds
-                    ),
+                    min(self._travel_time(attraction_id, seed_id) for seed_id in seeds),
                     self.graph.nodes[attraction_id].weight,
                     -self.graph.nodes[attraction_id].time,
                 ),
@@ -224,9 +214,7 @@ class RouteOptimizer:
         """Build compact daily regions while respecting route time and day load."""
 
         day_routes: List[List[int]] = [[] for _ in range(days)]
-        assignment_time_limit = self.duration_sec * (
-            1 + self.ASSIGNMENT_LIMIT_OVERAGE_RATE
-        )
+        assignment_time_limit = self.duration_sec * (1 + self.ASSIGNMENT_LIMIT_OVERAGE_RATE)
         valid_ids = [
             attraction_id
             for attraction_id in dict.fromkeys(attraction_ids)
@@ -259,9 +247,7 @@ class RouteOptimizer:
                 candidate_time = current_time + added_time
                 if candidate_time > assignment_time_limit:
                     continue
-                travel_to_region = self._region_travel_time(
-                    attraction_id, day_route
-                )
+                travel_to_region = self._region_travel_time(attraction_id, day_route)
                 fill_ratio = candidate_time / max(self.duration_sec, 1.0)
                 score = (
                     0.5 * travel_to_region
@@ -289,9 +275,7 @@ class RouteOptimizer:
             sum(node.y for node in nodes) / len(nodes),
         )
 
-    def _neighboring_days(
-        self, day_routes: List[List[int]], source_index: int
-    ) -> List[int]:
+    def _neighboring_days(self, day_routes: List[List[int]], source_index: int) -> List[int]:
         """Return at most two daily regions nearest to the source region."""
 
         if not day_routes[source_index]:
@@ -325,9 +309,7 @@ class RouteOptimizer:
 
         repaired = [list(day_route) for day_route in day_routes]
         move_limit = max_moves or max(1, sum(map(len, repaired)) * 2)
-        assignment_time_limit = self.duration_sec * (
-            1 + self.ASSIGNMENT_LIMIT_OVERAGE_RATE
-        )
+        assignment_time_limit = self.duration_sec * (1 + self.ASSIGNMENT_LIMIT_OVERAGE_RATE)
         for _ in range(move_limit):
             current_score = self._assignment_objective(repaired)
             best_score = current_score
@@ -413,18 +395,37 @@ class RouteOptimizer:
     ) -> bool:
         """Return whether an attraction adds only a small walking detour."""
 
+        position, _ = self._cheap_insertion(
+            current_route,
+            attraction_id,
+            maximum_detour_seconds,
+            maximum_detour_fraction,
+        )
+        return position is not None
+
+    def _cheap_insertion(
+        self,
+        current_route: List[int],
+        attraction_id: int,
+        maximum_detour_seconds: float = 20 * 60,
+        maximum_detour_fraction: float = 0.08,
+    ) -> Tuple[Optional[int], float]:
+        """Return the position and cost of an acceptably small detour."""
+
         position, added_time = self.find_best_insertion_position_a_star(
             current_route, attraction_id
         )
         if position is None:
-            return False
+            return None, added_time
         visit_time = self.graph.get_attraction_duration(attraction_id) or 0.0
         walking_detour = max(0.0, added_time - visit_time)
         allowed_detour = min(
             maximum_detour_seconds,
             self.duration_sec * maximum_detour_fraction,
         )
-        return walking_detour <= allowed_detour
+        if walking_detour > allowed_detour:
+            return None, added_time
+        return position, added_time
 
     def should_move_from_future_day(
         self,
@@ -434,26 +435,20 @@ class RouteOptimizer:
     ) -> bool:
         """Allow a cheap transfer only when it reduces combined walking time."""
 
-        if len(future_route) <= 1 or not self.is_cheap_insertion(
-            current_route, attraction_id
-        ):
+        if len(future_route) <= 1:
             return False
-        position, added_time = self.find_best_insertion_position_a_star(
-            current_route, attraction_id
-        )
+        position, added_time = self._cheap_insertion(current_route, attraction_id)
         current_time = self.estimate_total_route_time(current_route)
         if position is None or current_time + added_time > self.duration_sec:
             return False
         current_with = list(current_route)
         current_with.insert(position, attraction_id)
         future_without = [item for item in future_route if item != attraction_id]
-        previous_walk = (
-            self._estimate_walk_time(current_route)
-            + self._estimate_walk_time(future_route)
+        previous_walk = self._estimate_walk_time(current_route) + self._estimate_walk_time(
+            future_route
         )
-        transferred_walk = (
-            self._estimate_walk_time(current_with)
-            + self._estimate_walk_time(future_without)
+        transferred_walk = self._estimate_walk_time(current_with) + self._estimate_walk_time(
+            future_without
         )
         if math.isinf(previous_walk) or math.isinf(transferred_walk):
             return False

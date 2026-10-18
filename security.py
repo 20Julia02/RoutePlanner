@@ -7,6 +7,7 @@ import time
 from collections import OrderedDict, deque
 from typing import Deque
 
+
 class PayloadTooLarge(Exception):
     """Raised internally when a request exceeds the configured body limit."""
 
@@ -24,11 +25,7 @@ class RequestBodyLimitMiddleware:
             return
 
         raw_content_length = next(
-            (
-                value
-                for key, value in scope.get("headers", [])
-                if key.lower() == b"content-length"
-            ),
+            (value for key, value in scope.get("headers", []) if key.lower() == b"content-length"),
             None,
         )
         if raw_content_length:
@@ -62,7 +59,7 @@ class RequestBodyLimitMiddleware:
 
     @staticmethod
     async def _reject(send, status: int = 413, detail: str = "Żądanie jest zbyt duże."):
-        body = ("{\"detail\":\"" + detail + "\"}").encode("utf-8")
+        body = ('{"detail":"' + detail + '"}').encode("utf-8")
         await send(
             {
                 "type": "http.response.start",
@@ -87,12 +84,9 @@ class SecurityHeadersMiddleware:
             "object-src 'none'",
             "frame-ancestors 'none'",
             "form-action 'self'",
-            "script-src 'self' "
-            "'sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH' "
-            "'sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp' "
-            "'sha384-tXYNKOHx4T02jMP7YYCtBxPIv1B5gaA5mcVPBzqMp6d7VzWzxJgI2aWF/nJLrQdS'",
-            "style-src 'self' 'unsafe-inline' https://unpkg.com",
-            "style-src-elem 'self' https://unpkg.com",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "style-src-elem 'self'",
             "style-src-attr 'unsafe-inline'",
             "img-src 'self' data: blob: https:",
             "connect-src 'self' https://tiles.openfreemap.org https://*.openfreemap.org",
@@ -118,6 +112,7 @@ class SecurityHeadersMiddleware:
                         headers.append((encoded_name, value.encode("ascii")))
                         existing.add(encoded_name)
 
+                path = scope.get("path", "")
                 add_default("Content-Security-Policy", self.CONTENT_SECURITY_POLICY)
                 add_default("X-Content-Type-Options", "nosniff")
                 add_default("X-Frame-Options", "DENY")
@@ -133,7 +128,7 @@ class SecurityHeadersMiddleware:
                     "Strict-Transport-Security",
                     "max-age=63072000; includeSubDomains; preload",
                 )
-                if scope.get("path", "").startswith("/api/"):
+                if path.startswith("/api/"):
                     add_default("Cache-Control", "no-store")
                 message["headers"] = headers
             await send(message)

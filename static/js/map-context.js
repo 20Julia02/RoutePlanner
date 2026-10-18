@@ -1,5 +1,9 @@
-const STATE_KEY = Symbol.for("wanderplan.state");
-const MAP_KEY = Symbol.for("wanderplan.map");
+import * as L from "../vendor/leaflet/leaflet-src.esm.js";
+import { maplibreGL } from "../vendor/maplibre-gl-leaflet/leaflet-maplibre-gl.mjs";
+
+
+const STATE_KEY = Symbol.for("planyourroute.state");
+const MAP_KEY = Symbol.for("planyourroute.map");
 
 export const state = globalThis[STATE_KEY] ??= {
   edges: null,
@@ -14,7 +18,7 @@ export const state = globalThis[STATE_KEY] ??= {
 };
 
 export const DAY_COLORS = [
-  "#f26a3d", "#4269e1", "#188765", "#a847b7", "#d59d16", "#db3d77", "#59636f"
+  "#cf123b", "#2856a3", "#087766", "#70419a", "#a35c00", "#16718e", "#a32d78"
 ];
 
 const MAP_PALETTE = {
@@ -42,9 +46,9 @@ function applyMapPalette(vectorMap) {
   const landcoverReference = styleLayers.find(layer => layer.id === "landcover_wood");
   const landuseReference = styleLayers.find(layer => layer.id === "landuse_residential");
 
-  if (landcoverReference && !vectorMap.getLayer("wanderplan-vegetation")) {
+  if (landcoverReference && !vectorMap.getLayer("planyourroute-vegetation")) {
     vectorMap.addLayer({
-      id: "wanderplan-vegetation",
+      id: "planyourroute-vegetation",
       type: "fill",
       source: landcoverReference.source,
       "source-layer": landcoverReference["source-layer"],
@@ -73,9 +77,9 @@ function applyMapPalette(vectorMap) {
     }, "landcover_wood");
   }
 
-  if (landuseReference && !vectorMap.getLayer("wanderplan-green-landuse")) {
+  if (landuseReference && !vectorMap.getLayer("planyourroute-green-landuse")) {
     vectorMap.addLayer({
-      id: "wanderplan-green-landuse",
+      id: "planyourroute-green-landuse",
       type: "fill",
       source: landuseReference.source,
       "source-layer": landuseReference["source-layer"],
@@ -108,7 +112,7 @@ function applyMapPalette(vectorMap) {
 function createMap() {
   const instance = L.map("map", { zoomControl: false }).setView([41.9028, 12.4964], 13);
   L.control.zoom({ position: "bottomright" }).addTo(instance);
-  const baseLayer = L.maplibreGL({
+  const baseLayer = maplibreGL({
     style: "https://tiles.openfreemap.org/styles/positron"
   }).addTo(instance);
   const vectorMap = baseLayer.getMaplibreMap?.();
@@ -118,6 +122,7 @@ function createMap() {
 }
 
 export const map = globalThis[MAP_KEY] ??= createMap();
+export { L };
 
 export function clearMapLayers(layers) {
   layers.forEach(layer => map.removeLayer(layer));
