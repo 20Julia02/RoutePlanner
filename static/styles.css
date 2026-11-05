@@ -56,7 +56,7 @@ code, .leaflet-container { font-family: var(--font-ui); }
 .controls { padding: 32px 28px 42px; }
 .eyebrow { margin: 0 0 8px; color: var(--accent); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
 .intro h1 { margin: 0; font: 600 42px/1.05 var(--font-display); letter-spacing: -.025em; }
-.intro h1 em { color: var(--accent); font-weight: 500; }
+.intro h1 span { color: var(--accent); font-weight: 500; }
 .intro > p:last-child { color: var(--muted); max-width: 355px; margin: 17px 0 0; }
 .compact-intro { padding-bottom: 23px; }
 .compact-intro h1 { font-size: 36px; }
@@ -67,9 +67,9 @@ code, .leaflet-container { font-family: var(--font-ui); }
 .step-card.locked { opacity: .55; }
 .step-head { width: 100%; min-height: 68px; padding: 12px 14px; border: 0; background: transparent; display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer; }
 .step-card.locked .step-head { cursor: default; }
-.step-index { position: relative; flex: 0 0 40px; width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid rgba(40,21,45,.22); border-radius: 50%; background: var(--accent); color: white; font: 600 17px/1 var(--font-ui); transition: border-color .2s, background .2s, color .2s; }
-.step-card.active .step-index { border-color: rgba(40,21,45,.34); background: var(--accent); }
-.step-card.completed .step-index { border-color: rgba(40,21,45,.22); background: var(--accent); color: transparent; font-size: 0; }
+.step-index { position: relative; flex: 0 0 40px; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--accent); color: white; font: 600 17px/1 var(--font-ui); transition: background .2s, color .2s; }
+.step-card.active .step-index { background: var(--accent); }
+.step-card.completed .step-index { background: var(--accent); color: transparent; font-size: 0; }
 .step-card.completed .step-index::before { content: ""; position: absolute; top: 45%; left: 50%; width: 10px; height: 18px; border-right: 4px solid white; border-bottom: 4px solid white; border-radius: 2px; transform: translate(-50%, -50%) rotate(45deg); }
 .step-title { min-width: 0; flex: 1; }
 .step-title strong { display: block; }
@@ -267,9 +267,9 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .editor-table { width: 100%; border-collapse: collapse; background: white; }
 .editor-table th { position: sticky; top: 0; z-index: 1; padding: 10px 12px; background: #f1eef2; color: #746c76; font-size: 10px; text-align: left; text-transform: uppercase; letter-spacing: .05em; }
 .editor-table td { padding: 9px 12px; border-top: 1px solid #ece9ed; font-size: 12px; }
+.editor-table th:first-child, .editor-table td:first-child { width: 78px; white-space: nowrap; }
 .editor-table tr.disabled { color: #9c959e; background: #f8f6f8; }
 .editor-table .editor-enabled { width: 17px; height: 17px; margin: 0; accent-color: var(--ink); }
-.editor-table .weight-cell { font-weight: 600; color: var(--accent); }
 .editor-table .duration-edit { width: 104px; height: 34px; margin: 0; }
 .duration-cell { color: var(--muted); }
 .duration-control { display: flex; align-items: center; gap: 6px; }
@@ -329,9 +329,8 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
   .editor-toolbar input[type="search"] { height: 45px; flex-basis: 45px; font-size: 16px; }
   .editor-table { table-layout: fixed; }
   .editor-table th, .editor-table td { padding-left: 6px; padding-right: 6px; }
-  .editor-table th:first-child, .editor-table td:first-child { width: 66px; text-align: center; }
-  .editor-table th:nth-child(3), .editor-table td:nth-child(3) { width: 45px; text-align: center; }
-  .editor-table th:nth-child(4), .editor-table td:nth-child(4) { width: 96px; padding-left: 12px; padding-right: 4px; }
+  .editor-table th:first-child, .editor-table td:first-child { width: 78px; text-align: center; }
+  .editor-table th:nth-child(3), .editor-table td:nth-child(3) { width: 96px; padding-left: 12px; padding-right: 4px; }
   .editor-table .duration-control { gap: 3px; }
   .editor-table .duration-edit { width: 56px; padding: 0 5px; }
 }

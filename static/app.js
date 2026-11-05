@@ -260,7 +260,7 @@ function resetDataStep() {
   byId("dataStep").classList.remove("completed");
   byId("dataStepStatus").textContent = localAdminEnabled
     ? "Przygotuj nowy zestaw"
-    : "Wybierz przygotowany zestaw";
+    : "Wybierz miejsce do odkrycia";
   lockStep("startStep"); lockStep("planStep"); openStep("dataStep");
 }
 
@@ -282,13 +282,13 @@ async function loadPreparedNetworks(selectedId = "") {
   state.networkMetadata = Object.fromEntries(items.map(item => [item.selectionId, item]));
   const select = byId("preparedNetwork");
   select.textContent = "";
-  select.add(new Option("— wybierz zestaw —", ""));
+  select.add(new Option("— wybierz miejsce do odkrycia —", ""));
   const appendGroup = (label, sourceItems) => {
     if (!sourceItems.length) return;
     const group = document.createElement("optgroup");
     group.label = label;
     sourceItems.forEach(item => {
-      group.appendChild(new Option(`${item.name} · ${item.attraction_vertices} atrakcji`, item.selectionId));
+      group.appendChild(new Option(item.name, item.selectionId));
     });
     select.appendChild(group);
   };
@@ -332,13 +332,6 @@ function updatePreparedInfo() {
   const select = byId("preparedNetwork");
   const reference = networkReference(select.value);
   byId("editAttractionsButton").hidden = !reference;
-  byId("preparedInfo").textContent = select.value
-    ? "Wybrano zestaw z listy dostępnych. Możesz rozpocząć planowanie trasy lub edytować atrakcje."
-    : select.disabled
-      ? "Nie ma jeszcze dostępnych przygotowanych zestawów."
-      : localAdminEnabled
-        ? "Wybierz zestaw albo przygotuj nowy jako administrator lokalny."
-        : "Wybierz jeden z przygotowanych zestawów.";
 }
 
 byId("preparedNetwork").addEventListener("change", async event => {
@@ -372,7 +365,6 @@ async function initializeApplication() {
 }
 
 initializeApplication().catch(error => {
-  byId("preparedInfo").textContent = "Nie udało się wczytać katalogu przygotowanych zestawów.";
   byId("preparedNetwork").disabled = true;
   byId("preparationPanel").hidden = !localAdminEnabled;
   resetDataStep();
@@ -401,7 +393,7 @@ function visibleEditorRows() {
 function updateEditorSummary() {
   const visible = visibleEditorRows();
   const enabledCount = editorRows.filter(row => row.enabled).length;
-  byId("attractionEditorCount").textContent = `${enabledCount} z ${editorRows.length} atrakcji włączonych`;
+  byId("attractionEditorCount").textContent = `${enabledCount} z ${editorRows.length} atrakcji`;
   const toggle = byId("toggleAllAttractions");
   toggle.checked = visible.length > 0 && visible.every(row => row.enabled);
   toggle.indeterminate = visible.some(row => row.enabled) && !toggle.checked;
@@ -425,9 +417,6 @@ function renderEditorRows() {
 
     const nameCell = document.createElement("td");
     nameCell.textContent = row.name;
-    const weightCell = document.createElement("td");
-    weightCell.className = "weight-cell";
-    weightCell.textContent = String(row.weight);
     const durationCell = document.createElement("td");
     durationCell.className = "duration-cell";
     const duration = document.createElement("input");
@@ -441,7 +430,7 @@ function renderEditorRows() {
     durationControl.className = "duration-control";
     durationControl.append(duration, document.createTextNode("min"));
     durationCell.appendChild(durationControl);
-    tableRow.append(enabledCell, nameCell, weightCell, durationCell);
+    tableRow.append(enabledCell, nameCell, durationCell);
     body.appendChild(tableRow);
   });
   updateEditorSummary();
@@ -947,10 +936,10 @@ byId("planButton").addEventListener("click", async () => {
 });
 
 const PLANNING_PROGRESS_STAGES = [
-  { limit: 28, step: 4 },
-  { limit: 52, step: 3 },
-  { limit: 74, step: 2 },
-  { limit: 92, step: 1 }
+  { limit: 52, step: 10 },
+  { limit: 76, step: 4 },
+  { limit: 88, step: 2 },
+  { limit: 95, step: 0.25 }
 ];
 
 function startPlanningProgress() {
@@ -961,7 +950,7 @@ function startPlanningProgress() {
     const stage = PLANNING_PROGRESS_STAGES.find(item => planningProgressValue < item.limit);
     if (!stage) return;
     planningProgressValue = Math.min(stage.limit, planningProgressValue + stage.step);
-    showProgress(planningProgressValue);
+    showProgress(Math.floor(planningProgressValue));
   }, 450);
 }
 

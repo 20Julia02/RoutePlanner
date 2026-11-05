@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://tiles.openfreemap.org">
   <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css?v=1.9.4">
   <link rel="stylesheet" href="/static/vendor/maplibre-gl/maplibre-gl.css?v=6.10.0">
-  <link rel="stylesheet" href="/static/styles.css?v=78">
+  <link rel="stylesheet" href="/static/styles.css?v=84">
 </head>
 <body>
   <div class="app-shell">
@@ -25,19 +25,18 @@
 
       <main class="controls" id="planningControls">
         <section class="intro compact-intro">
-          <h1>Zaplanuj wakacje<br><em>krok po kroku</em></h1>
+          <h1>Zaplanuj wakacje<br><span>na własnych zasadach</span></h1>
         </section>
 
         <div class="steps" id="steps">
           <section class="step-card active" id="dataStep">
             <button class="step-head" type="button" data-step="dataStep">
-              <span class="step-index">1</span><span class="step-title"><strong>Wybierz dane</strong><small id="dataStepStatus">Wybierz zestaw</small></span><span class="step-chevron">⌄</span>
+              <span class="step-index">1</span><span class="step-title"><strong>Wybierz dane</strong><small id="dataStepStatus">Wybierz miejsce do odkrycia</small></span><span class="step-chevron">⌄</span>
             </button>
             <div class="step-body">
-              <label>Wybierz zestaw
+              <label>Wybierz miejsce do odkrycia
                 <select id="preparedNetwork"><option value="">Sprawdzam zapisane zestawy…</option></select>
               </label>
-              <p class="step-note" id="preparedInfo">Wybierz zestaw przygotowany przez administratora.</p>
               <div class="data-actions">
                 <button type="button" class="secondary-button" id="editAttractionsButton" hidden>Edytuj atrakcje</button>
                 <button type="button" class="text-button" id="newNetworkButton" hidden>+ Przygotuj zestaw administratorski</button>
@@ -82,7 +81,6 @@
               <span class="step-index">2</span><span class="step-title"><strong>Wskaż punkt początkowy</strong><small id="startStepStatus">Najpierw wybierz dane</small></span><span class="step-chevron">⌄</span>
             </button>
             <div class="step-body">
-              <p class="step-note">Kliknij przycisk Wybierz punkt na mapie, a następnie wskaż na mapie lokalizację hotelu. Możesz też wpisać współrzędne.</p>
               <button type="button" class="map-select-button" id="startMapButton">Wybierz punkt na mapie</button>
               <button type="button" class="map-select-button location-button" id="useCurrentLocationButton">Użyj mojej lokalizacji</button>
               <p class="message start-location-message" id="startLocationMessage" hidden></p>
@@ -176,11 +174,11 @@
       <p class="editor-intro" id="attractionEditorIntro"></p>
       <div class="editor-toolbar">
         <input type="search" id="attractionSearch" placeholder="Szukaj atrakcji…" aria-label="Szukaj atrakcji">
-        <label class="editor-all"><input type="checkbox" id="toggleAllAttractions"> Włącz wszystkie widoczne</label>
+        <label class="editor-all"><input type="checkbox" id="toggleAllAttractions"> Włącz wszystkie</label>
       </div>
       <div class="editor-table-wrap">
         <table class="editor-table">
-          <thead><tr><th>W planie</th><th>Atrakcja</th><th>Waga</th><th>Czas zwiedzania</th></tr></thead>
+          <thead><tr><th>W planie</th><th>Atrakcja</th><th>Czas zwiedzania</th></tr></thead>
           <tbody id="attractionEditorRows"></tbody>
         </table>
       </div>
@@ -195,6 +193,6 @@
     </section>
   </div>
 
-  <script type="module" src="/static/app.js?v=88"></script>
+  <script type="module" src="/static/app.js?v=94"></script>
 </body>
 </html>
